@@ -10,7 +10,7 @@
 
 # 框架
 
-* [Spring!!!](/frame/SpringBoot.md)
+* [SpringBoot](/frame/SpringBoot.md)
 
 * Vue
 
