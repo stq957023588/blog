@@ -24,4 +24,17 @@
 
 * [Git](/git/)
 
+# 数据库
+
+* [MyCat](/database/MyCat.md)
+
+# 操作系统
+
+* [Linux](/operating-system/Linux.md)
+* [Windows](/operating-system/Windows.md)
+
+# 通用技巧
+
+* [正则表达式](/Regular.md)
+
 # Unity
