@@ -66,7 +66,7 @@ public class RedisConfig extends CachingConfigurerSupport {
 
 ## 添加自定义注解实现注解定义失效时间
 
-> 代码:[GitHub]()
+> 代码:[GitHub](https://github.com/stq957023588/RedisPlus)
 
 Pom:
 
