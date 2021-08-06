@@ -18,11 +18,160 @@
   >
   > if not ""%1"" == ""run"" goto mainEntry
 
+# 自定义application.yml中的参数
+
+## maven设置
+
+依赖
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-configuration-processor</artifactId>
+    <optional>true</optional>
+</dependency>
+```
+
+plugin
+
+```xml
+<plugin>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-maven-plugin</artifactId>
+    <configuration>
+        <excludes>
+            <exclude>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-configuration-processor</artifactId>
+            </exclude>
+        </excludes>
+    </configuration>
+</plugin>
+```
+
+# 集成Swagger
+
+## 配置
+
+```java
+
+@Configuration
+@ConfigurationProperties(prefix = "swagger")
+public class SwaggerConfig {
+
+    private boolean enable;
+
+    // swagger2的配置文件，这里可以配置swagger2的一些基本的内容，比如扫描的包等等
+    @Bean
+    public Docket createRestApi() {
+        return new Docket(DocumentationType.SWAGGER_2)
+                // 设置不同的组
+                .groupName("Group one")
+                .apiInfo(apiInfo())
+                // 是否启动Swagger,可在application.yml中配置,prod环境建议为false
+                .enable(enable)
+                .select()
+                // 需要扫描的包的路径
+                .apis(RequestHandlerSelectors.basePackage("com.fool.demo.controller"))
+                .paths(PathSelectors.any())
+                .build();
+    }
+
+    // 构建 api文档的详细信息函数,注意这里的注解引用的是哪个
+    private ApiInfo apiInfo() {
+        return new ApiInfoBuilder()
+                // 页面标题
+                .title("Fool's demo")
+                // 创建人信息
+                .contact(new Contact("Fool", "主页地址", "邮箱"))
+                // 版本号
+                .version("1.0")
+                // 描述
+                .description("This is a demo application")
+                .build();
+    }
+}
+```
+
+## 集成Swagger中的坑
+
+* 在2.9.2 版本中使用@ApiParam(defaultValue = "1") 会报错,这是版本Bug
+
+# 集成Solr
+
+依赖
+
+```xml
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-solr</artifactId>
+</dependency>
+```
+
 # 整合Redis
+
+## Redis广播
+
+> 可用于微服务下的websocket
+
+配置
+
+```java
+
+@Configuration
+public class RedisConfig {
+    // ...
+
+    /**
+     * redis 消息监听器
+     */
+    @Bean
+    RedisMessageListenerContainer container(RedisConnectionFactory connectionFactory) {
+        RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+        container.setConnectionFactory(connectionFactory);
+        // 定义广播频道
+        PatternTopic channel = new PatternTopic("channel");
+        // 添加广播监听器
+        container.addMessageListener(new RedisRadioMessageListener(), channel);
+        return container;
+    }
+}
+```
+
+redis广播监听接收类:
+
+```java
+
+public class RedisRadioMessageListener implements MessageListener {
+    @Override
+    public void onMessage(Message message, byte[] bytes) {
+
+    }
+}
+```
+
+发送广播
+
+```java
+  public class RedisRadio {
+    private StringRedisTemplate template;
+
+    @Autowired
+    public void setTemplate(StringRedisTemplate template) {
+        this.template = template;
+    }
+
+    public void radio(String message) {
+        template.convertAndSend("channel", message);
+    }
+}
+```
 
 ## 监听缓存失效
 
 redis配置文件将notify-keyspace-events "" 改为 notify-keyspace-events Ex
+
 ```
 notify-keyspace-events Ex
 #
