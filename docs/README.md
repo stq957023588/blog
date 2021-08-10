@@ -4,7 +4,7 @@
 
 # 编程语言
 
-* Java
+* [Java](/programming-language/Java.md)
 
 * JS
 
