@@ -25,6 +25,7 @@
 依赖
 
 ```xml
+
 <dependency>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-configuration-processor</artifactId>
@@ -35,6 +36,7 @@
 plugin
 
 ```xml
+
 <plugin>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-maven-plugin</artifactId>
@@ -109,7 +111,32 @@ public class SwaggerConfig {
 </dependency>
 ```
 
+# 集成WebSocket
+
+## 坑
+
+* Junit单元测试时,需在@SpringbootTest注解中添加webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT参数
+  > @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+
 # 整合Redis
+
+## RedisTemplate
+
+### 创建文件夹
+
+文件下以数组形式存储,双冒号分割
+
+```java
+// 多级文件夹用多个::分割
+redisTemplate.opsForValue().set("dir::key","value");
+```
+
+文件夹下以key/value形式存储,单冒号分割
+
+```java
+// 多级文件夹用多个:分割
+redisTemplate.opsForValue().set("dir:key","value");
+```
 
 ## Redis广播
 
