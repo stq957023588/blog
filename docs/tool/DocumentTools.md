@@ -11,4 +11,4 @@
 3. 运行项目
 4. 访问http://127.0.0.1:3333/toWord?url=http://127.0.0.1:4444/v2/api-docs
 
-> 注: 127.0.0.1:3333是Swagger2Word项目地址,http://127.0.0.1:4444/v2/api-docs是需要生成文档的项目的Swagger Json数据地址
+> 注: 127.0.0.1:3333是Swagger2Word项目地址,http://127.0.0.1:4444/v2/api-docs 是需要生成文档的项目的Swagger Json数据地址
