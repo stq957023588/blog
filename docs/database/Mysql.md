@@ -5,6 +5,12 @@
 * 查询my.cnf所在位置
   > find / -name my.cnf
 
+# 创建用户
+
+```sql
+
+```
+
 # 主从复制
 
 ## 一主一从
@@ -23,7 +29,7 @@
 * 创建用于复制数据的账号
   ```sql
   # 创建账号 123.123.123.123是从数据库所在服务器的ip地址
-  create user 'repl@123.123.123.123' identity by 'fool.123';
+  create user 'repl@123.123.123.123' identified by 'fool.123';
   # 分配权限
   grant replication slave on *.* to 'repl@123.123.123.123';
   # 刷新权限
