@@ -58,7 +58,7 @@ public class NamedThreadFactory implements ThreadFactory {
 * 使用自定义命名线程工厂
 
 ```java
-ThreadPoolExecutor threadPoolExecutor=new ThreadPoolExecutor(5,5,1,TimeUnit.MINUTES,new LinkedBlockingDeque<>(),new NamedThreadFactory("测试"));
+ThreadPoolExecutor threadPoolExecutor=new ThreadPoolExecutor(5,5,1, TimeUnit.MINUTES,new LinkedBlockingDeque<>(),new NamedThreadFactory("测试"));
 ```
 
 # 关键字

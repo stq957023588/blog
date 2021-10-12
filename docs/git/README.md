@@ -38,9 +38,19 @@
 
 ## 拉取,提交失败等情况处理方法
 
-拉取提示:Your account has been blocked
+### 拉取提示:Your account has been blocked
+
+1. 删除当前远程地址
+
 > git remote remove origin
+
+2. 重新添加元辰地址
+
 > git remote add origin [项目地址]
+
+3. 设置当前master分支
+
+> git branch --set-upstream-to=origin/master master
 
 或者
 > git remote set-url origin [项目地址]
