@@ -3,21 +3,26 @@
 ## Docker命令
 
 * -e 参数传递,须在dockerfile中使用${PARAM}
+
 ```shell
 -e "PARAM=dev"
 ```
+
 * --link [映射名称]:[镜像名称] 内部连接,如Springboot项目连接Docker内部的Mysql,可使用此来进行连接
+
 ```shell
 #使用后的mysql url:jdbc:mysql://mysql:3306/fool
 --link mysql:mysql
 ```
-* -p [对外端口]:[内部端口] 
 
+* -p [对外端口]:[内部端口]
 
 ## 制作Springboot项目镜像
 
 1. pom.xml修改spring-boot-maven-plugin,configuration下添加layers
+
 ```xml
+
 <plugin>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-maven-plugin</artifactId>
