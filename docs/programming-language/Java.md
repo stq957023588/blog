@@ -58,7 +58,7 @@ public class NamedThreadFactory implements ThreadFactory {
 * 使用自定义命名线程工厂
 
 ```java
-ThreadPoolExecutor threadPoolExecutor=new ThreadPoolExecutor(5,5,1, TimeUnit.MINUTES,new LinkedBlockingDeque<>(),new NamedThreadFactory("测试"));
+ThreadPoolExecutor threadPoolExecutor=new ThreadPoolExecutor(5,5,1,TimeUnit.MINUTES,new LinkedBlockingDeque<>(),new NamedThreadFactory("测试"));
 ```
 
 # 关键字
@@ -66,3 +66,17 @@ ThreadPoolExecutor threadPoolExecutor=new ThreadPoolExecutor(5,5,1, TimeUnit.MIN
 ## native
 
 当被native修饰时,表明这是一个本地方法,本地方法是用非Java语言编写的,在Java程序外实现,由JVM去调用.[详细说明](https://blog.csdn.net/wike163/article/details/6635321)
+
+# 第三方类库
+
+## MapStruct
+
+类转换
+
+## Faker
+
+假数据制造,[GitHub](https://github.com/DiUS/java-faker)
+
+## Wiremock
+
+测试框架

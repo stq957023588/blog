@@ -54,10 +54,43 @@ plugin
 # 国际化I8n
 
 ## 获取所有国际化信息
+
 ```java
 
 
 ```
+
+# 集成FlyWay
+
+## maven pom.xml
+
+```xml
+<!--....-->
+<!--依赖-->
+<dependency>
+    <groupId>org.flywaydb</groupId>
+    <artifactId>flyway-core</artifactId>
+</dependency>
+        <!--....-->
+        <!--Maven插件(可不添加)-->
+<plugin>
+<groupId>org.flywaydb</groupId>
+<artifactId>flyway-maven-plugin</artifactId>
+<configuration>
+    <user>root</user>
+    <password>123456</password>
+    <driver>com.mysql.cj.jdbc.Driver</driver>
+    <url>jdbc:mysql://127.0.0.1:3306/fool</url>
+    <baselineOnMigrate>true</baselineOnMigrate>
+    <!-- //sql脚本位置，flyway会自动去找到这个目录并且执行里面的sql脚本 -->
+    <locations>classpath:db/migration/</locations>
+</configuration>
+</plugin>
+```
+
+## sql文件命名格式
+
+V<version>__<name>.sql
 
 # 集成Swagger
 
@@ -572,6 +605,10 @@ spring:
       username:
       password:
 ```
+
+# 测试
+
+在使用Junit测试时,如果项目中包含WebSocket,@SpringBootTest需要添加参数webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
 
 # 注解
 
