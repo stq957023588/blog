@@ -2,7 +2,7 @@
 
 ## Docker命令
 
-* -e 参数传递,须在dockerfile中使用${PARAM}
+* -e 参数传递,须在dockerfile中使用${PARAM}   
 
 ```shell
 -e "PARAM=dev"
