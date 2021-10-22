@@ -51,6 +51,415 @@ plugin
 </plugin>
 ```
 
+# SpringSecurity
+
+## Maven依赖
+
+```xml
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-security</artifactId>
+</dependency>
+```
+
+## 自定义配置项
+
+YML中的配置
+
+```yaml
+jwt:
+  issuer: Fool
+  tokenHeader: Authorization
+  secret: my-springsecurity-plus
+  expiration: 604800
+```
+
+Java代码
+
+```java
+
+@Data
+@Configuration
+@ConfigurationProperties(prefix = "jwt")
+public class JwtProperty {
+    /**
+     * 发布者,用于Token生成以及校验
+     */
+    private String issuer;
+    /**
+     * request请求中token的请求头名称
+     */
+    private String tokenHeader;
+    /**
+     * 生成token所需要的密钥
+     */
+    private String secret;
+    /**
+     * token失效时间,单位毫秒
+     */
+    private Long expiration;
+}
+```
+
+pom.xml,添加一下依赖可以在写好Java类后更好的配置yml文件(可不添加,无影响),需Maven重新编译打包
+
+```xml
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-configuration-processor</artifactId>
+    <optional>true</optional>
+</dependency>
+```
+
+## UserDetailService
+
+自定义类实现UserDetailService用于获取用户
+
+```java
+public class UserService implements UserDetailsService {
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        // 使用username从数据库中查询用户
+        // 如果密码在存储时没有加密,那么则在取出时进行加密
+        String password = "1234";
+        // 查询用户的权限
+        String[] permissions = new String[]{"ADMIN"};
+        return new User(username, password, Stream.of(permissions).map(e -> (GrantedAuthority) () -> e).collect(Collectors.toList()));
+    }
+}
+```
+
+## FilterInvocationSecurityMetadataSource
+
+自定义类实现FilterInvocationSecurityMetadataSource,用于获取当前路径哪些权限可以访问,动态权限控制
+
+```java
+
+@Component
+public class CustomizeFilterInvocationSecurityMetadataSource implements FilterInvocationSecurityMetadataSource {
+    @Override
+    public Collection<ConfigAttribute> getAttributes(Object o) throws IllegalArgumentException {
+        //获取请求地址
+        String requestUrl = ((FilterInvocation) o).getRequestUrl();
+        log.debug("Request url:{}", requestUrl);
+        // 查询请求路径所需要的权限
+        // 如果想要不登陆也可访问,那么返回空即可.SecurityConfig.createList();
+        String[] attributes = {"ADMIN"};
+        return SecurityConfig.createList(attributes);
+    }
+
+    @Override
+    public Collection<ConfigAttribute> getAllConfigAttributes() {
+        return null;
+    }
+
+    @Override
+    public boolean supports(Class<?> aClass) {
+        return true;
+    }
+}
+```
+
+## AccessDecisionManager
+
+自定义类实现AccessDecisionManager,用于判断当前用户是否拥有访问当前路径的权限
+
+```java
+
+@Component
+public class CustomizeAccessDecisionManager implements AccessDecisionManager {
+    @Override
+    public void decide(Authentication authentication, Object o, Collection<ConfigAttribute> collection) throws AccessDeniedException, InsufficientAuthenticationException {
+        for (ConfigAttribute ca : collection) {
+            //当前请求需要的权限,此处路径权限是调用CustomizeFilterInvocationSecurityMetadataSource的getAttributes获取的
+            String needRole = ca.getAttribute();
+            //当前用户所具有的权限
+            Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
+            for (GrantedAuthority authority : authorities) {
+                if (authority.getAuthority().equals(needRole)) {
+                    return;
+                }
+            }
+        }
+        // 权限不足,抛出访问被拒异常,会被上一级捕获,最终调用自定义AccessDeniedHandler中的handle方法
+        throw new AccessDeniedException("权限不足!");
+    }
+
+    @Override
+    public boolean supports(ConfigAttribute configAttribute) {
+        return true;
+    }
+
+    @Override
+    public boolean supports(Class<?> aClass) {
+        return true;
+    }
+
+}
+```
+
+## OncePerRequestFilter
+
+自定义类继承OncePerRequestFilter,实现Token处理   
+用于登陆后返回Token而不是产生一个Session的情况,需要将此过滤器放到UsernamePasswordAuthenticationFilter之前执行
+
+```java
+
+@Component
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    private JwtProperty jwtProperty;
+
+    @Autowired
+    public void setJwtProperty(JwtProperty jwtProperty) {
+        this.jwtProperty = jwtProperty;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        // 获取Token
+        String token = request.getHeader(jwtProperty.getTokenHeader());
+
+        UsernamePasswordAuthenticationToken authentication = null;
+
+        try {
+            Algorithm algorithm = Algorithm.HMAC256(jwtProperty.getSecret());
+            JWTVerifier verifier = JWT.require(algorithm).withIssuer(jwtProperty.getIssuer()).build();
+            // 验证Token是否有效,无效会报错
+            DecodedJWT verify = verifier.verify(token);
+            // 从token中获取用户名称,和权限
+            String username = verify.getClaim("username").asString();
+            String[] roles = verify.getClaim("roles").asArray(String.class);
+
+            List<GrantedAuthority> permissions = Stream.of(roles).map(e -> (GrantedAuthority) () -> e).collect(Collectors.toList());
+            User user = new User(username, "PROTECTED", permissions);
+            // 生成一个authentication,
+            authentication = new UsernamePasswordAuthenticationToken(user, null, permissions);
+            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            logger.info(String.format("Authenticated user %s, setting security context", username));
+        } catch (JWTVerificationException e) {
+            logger.warn(String.format("Verify token failed:%s", token), e);
+        } catch (Exception e) {
+            logger.error(String.format("Parsing token failed:%s", token), e);
+        }
+        /*
+            将authentication放到上下文中,
+            因为在WebSecurityConfig中取消了session,所以无论是否调用过登录接口,上下文中都不会存在authentication
+            需要在判断是否登录前从Token中获取用户信息,生成authentication,手动放入上下文
+         */
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        // 执行下一个过滤器
+        filterChain.doFilter(request, response);
+    }
+}
+```
+
+## 配置SpringSecurity
+
+```java
+
+@Configuration
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    private UserService userService;
+
+    private JwtProperty jwtProperty;
+
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    private CustomizeAccessDecisionManager accessDecisionManager;
+
+    private CustomizeFilterInvocationSecurityMetadataSource securityMetadataSource;
+
+    @Autowired
+    public void setJwtAuthenticationFilter(JwtAuthenticationFilter jwtAuthenticationFilter) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    }
+
+    @Autowired
+    public void setJwtProperty(JwtProperty jwtProperty) {
+        this.jwtProperty = jwtProperty;
+    }
+
+    @Autowired
+    public void setAccessDecisionManager(CustomizeAccessDecisionManager accessDecisionManager) {
+        this.accessDecisionManager = accessDecisionManager;
+    }
+
+    @Autowired
+    public void setSecurityMetadataSource(CustomizeFilterInvocationSecurityMetadataSource securityMetadataSource) {
+        this.securityMetadataSource = securityMetadataSource;
+    }
+
+
+    @Autowired
+    public void setUserService(UserService userService) {
+        this.userService = userService;
+    }
+
+    /**
+     * 将security中加密方式注入到spring容器中
+     */
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * 将账号密码设置在数据库当中
+     */
+    @Override
+    public void configure(AuthenticationManagerBuilder auth) throws Exception {
+        auth
+                //将UserDetailsService放到容器中
+                .userDetailsService(userService)
+                //加密方式放入
+                .passwordEncoder(passwordEncoder());
+    }
+
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        // super.configure(http);
+
+        http.cors().and().csrf().disable();
+        http.authorizeRequests()
+                .withObjectPostProcessor(new ObjectPostProcessor<FilterSecurityInterceptor>() {
+                    @Override
+                    public <O extends FilterSecurityInterceptor> O postProcess(O o) {
+                        //决策管理器
+                        o.setAccessDecisionManager(accessDecisionManager);
+                        //安全元数据源
+                        o.setSecurityMetadataSource(securityMetadataSource);
+                        return o;
+                    }
+                })
+                .and()
+                //登出
+                .logout()
+                //允许所有用户
+                .permitAll()
+                //登出成功处理逻辑
+                .logoutSuccessHandler(logoutSuccessHandler())
+                //登出之后删除cookie
+                .deleteCookies("JSESSIONID")
+                //登入
+                .and().formLogin()
+                //允许所有用户
+                .permitAll()
+                //登录成功处理逻辑
+                .successHandler(authenticationSuccessHandler())
+                //登录失败处理逻辑
+                .failureHandler(authenticationFailureHandler())
+                //异常处理(权限拒绝、登录失效等)
+                .and().exceptionHandling()
+                //权限拒绝处理逻辑
+                .accessDeniedHandler(accessDeniedHandler())
+                //匿名用户访问无权限资源时的异常处理
+                .authenticationEntryPoint(authenticationEntryPoint())
+                //会话管理
+                .and()
+                // 取消Session,使用JWT
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+        // .sessionManagement()
+        //同一账号同时登录最大用户数
+        // .maximumSessions(1)
+        //会话失效(账号被挤下线)处理逻辑
+        // .expiredSessionStrategy(sessionInformationExpiredStrategy());
+        // 将自定义的Token处理过滤器添加到UsernamePasswordAuthenticationFilter之前
+        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+    }
+
+
+    /**
+     * Session失效调用
+     */
+    @Bean
+    public SessionInformationExpiredStrategy sessionInformationExpiredStrategy() {
+        return sessionInformationExpiredEvent -> {
+            DefaultResult<Object> result = DefaultResult.beOffline();
+            HttpServletResponse httpServletResponse = sessionInformationExpiredEvent.getResponse();
+            httpServletResponse.setContentType("text/json;charset=utf-8");
+            httpServletResponse.getWriter().write(JSON.toJSONString(result));
+        };
+    }
+
+    /**
+     * 访问被拒
+     */
+    @Bean
+    public AccessDeniedHandler accessDeniedHandler() {
+        return (httpServletRequest, httpServletResponse, e) -> {
+            DefaultResult<?> result = DefaultResult.accessDenied();
+            httpServletResponse.setContentType("text/json;charset=utf-8");
+            httpServletResponse.getWriter().write(JSON.toJSONString(result));
+
+        };
+    }
+
+    /**
+     * 未登录
+     */
+    @Bean
+    public AuthenticationEntryPoint authenticationEntryPoint() {
+        return (httpServletRequest, httpServletResponse, e) -> {
+            DefaultResult<?> result = DefaultResult.notLoggedIn();
+            httpServletResponse.setContentType("text/json;charset=utf-8");
+            httpServletResponse.getWriter().write(JSON.toJSONString(result));
+        };
+    }
+
+
+    /**
+     * 登录成功
+     */
+    @Bean
+    public AuthenticationSuccessHandler authenticationSuccessHandler() {
+        return (httpServletRequest, httpServletResponse, authentication) -> {
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+
+            long current = System.currentTimeMillis();
+
+            String token = JWT.create().withIssuer(jwtProperty.getIssuer())
+                    .withIssuedAt(new Date(current))
+                    .withExpiresAt(new Date(current + jwtProperty.getExpiration()))
+                    .withClaim("username", userDetails.getUsername())
+                    .withArrayClaim("roles", userDetails.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList()).toArray(new String[]{}))
+                    .sign(Algorithm.HMAC256(jwtProperty.getSecret()));
+            DefaultResult<Object> result = DefaultResult.success("登陆成功", token);
+            httpServletResponse.setContentType("text/json;charset=utf-8");
+            httpServletResponse.getWriter().write(JSON.toJSONString(result));
+        };
+    }
+
+    /**
+     * 登录失败
+     */
+    @Bean
+    public AuthenticationFailureHandler authenticationFailureHandler() {
+        return (httpServletRequest, httpServletResponse, e) -> {
+            DefaultResult<Object> result = DefaultResult.authFailed(e.getMessage());
+            httpServletResponse.setContentType("text/json;charset=utf-8");
+            httpServletResponse.getWriter().write(JSON.toJSONString(result));
+        };
+    }
+
+    /**
+     * 登出
+     */
+    @Bean
+    public LogoutSuccessHandler logoutSuccessHandler() {
+        return (httpServletRequest, httpServletResponse, authentication) -> {
+            DefaultResult<Object> result = DefaultResult.success("登出成功");
+            httpServletResponse.setContentType("text/json;charset=utf-8");
+            httpServletResponse.getWriter().write(JSON.toJSONString(result));
+        };
+    }
+
+}
+```
+
 # 国际化I8n
 
 ## 获取所有国际化信息
@@ -90,7 +499,7 @@ plugin
 
 ## sql文件命名格式
 
-V<version>__<name>.sql
+V[version]__[name].sql
 
 # 集成Swagger
 
@@ -617,4 +1026,11 @@ spring:
 * 参数   
   | 参数名称 | 参数类型 | 说明 |   
   | ---- | ---- | ---- |   
-  | required | boolean | 决定当前所需注入的Bean是否必须存在实例化对象 |   
+  | required | boolean | 决定当前所需注入的Bean是否必须存在实例化对象 |
+
+## @ConditionalOnProperty
+
+* 参数 | 参数名称 | 参数类型 | 说明 |   
+  | ---- | ---- | ---- |   
+  | name | String | application.yml中的参数名称 | | havingValue | String |
+  只有application.yml中的值与havingValue中的值匹配时才会被Springboot管理 |
