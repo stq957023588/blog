@@ -18,6 +18,60 @@
   >
   > if not ""%1"" == ""run"" goto mainEntry
 
+# Spring Boot 常见配置
+
+```yaml
+spring:
+  servlet:
+    multipart:
+      # 最大上传文件大小,默认是1MB
+      max-file-size: 1MB
+      # 最大请求大小
+      max-request-size: 10MB
+```
+
+# 统一返回结果
+
+配置类
+
+```java
+
+@ControllerAdvice
+public class ResponseConfig implements ResponseBodyAdvice<Object> {
+    @Override
+    public boolean supports(MethodParameter returnType, Class<? extends HttpMessageConverter<?>> converterType) {
+        HttpServletRequest request = SpringContextUtils.getRequest();
+        // 从Http请求中获取请求头
+        String headerValue = request.getHeader(HttpHeaderConst.UNIFORM_RESPONSE);
+        return !RequestHeaderEnum.NON_UNIFORM_RESPONSE.getValue().equals(headerValue);
+    }
+
+    @SneakyThrows
+    @Override
+    public Object beforeBodyWrite(Object body, MethodParameter returnType, MediaType selectedContentType, Class<? extends HttpMessageConverter<?>> selectedConverterType, ServerHttpRequest request, ServerHttpResponse response) {
+        // 从http请求中获取在拦截器中预处理时添加的UniformResponse注解(这里是在ResponseInterceptor中添加的)
+        // UniformResponse uniformResponseAnn = (UniformResponse) SpringContextUtils.getRequest().getAttribute(ResponseInterceptor.RESPONSE_RESULT);
+
+        // Class<? extends Result> resultClass = uniformResponseAnn.templateClass();
+        if (body instanceof Result) {
+            return body;
+        }
+
+        Result<Object> result = new DefaultResult<>();
+        result.setCode(Result.SUCCESS);
+        result.setData(body);
+
+        if (body instanceof String) {
+            return JSONObject.toJSONString(result);
+        }
+
+
+        return result;
+    }
+}
+
+```
+
 # 自定义application.yml中的参数
 
 ## maven设置

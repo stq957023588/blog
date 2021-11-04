@@ -48,7 +48,11 @@
 
 > git remote add origin [项目地址]
 
-3. 设置当前master分支
+3. 拉取分支信息
+
+> git pull
+
+4. 设置当前master分支
 
 > git branch --set-upstream-to=origin/master master
 
