@@ -30,6 +30,74 @@ spring:
       max-request-size: 10MB
 ```
 
+# 自动装配原理
+
+https://www.cnblogs.com/javaguide/p/springboot-auto-config.html
+
+# 创建一个Spring starter
+
+1. 创建一个Maven项目
+
+2. 引入依赖
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.fool</groupId>
+    <artifactId>threadpool-spring-boot-starter</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+    </properties>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.3.7.RELEASE</version>
+    </parent>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+            <version>2.3.7.RELEASE</version>
+        </dependency>
+    </dependencies>
+
+</project>
+```
+
+3. 创建需要自动装配的Configuration类
+
+```java
+// 和普通的@Configuration一样
+@Configuration
+public class ThreadPoolAutoConfiguration {
+
+    @Bean
+    // 当前项目中存在ThreadPoolExecutor这个类才进行装配
+    @ConditionalOnClass(ThreadPoolExecutor.class)
+    public ThreadPoolExecutor customizeThreadPool() {
+        return new ThreadPoolExecutor(5, 10, 1, TimeUnit.MINUTES, new LinkedBlockingDeque<>());
+    }
+
+}
+```
+
+4. 在resources下创建META-INF/spring.factories
+
+```text
+# 需要自动装配的类,多个写多行,以 ,\ 结尾
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.fool.ThreadPoolAutoConfiguration
+```
+
 # 统一返回结果
 
 配置类
