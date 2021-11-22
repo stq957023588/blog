@@ -2,7 +2,7 @@
 
 ## Docker命令
 
-* -e 参数传递,须在dockerfile中使用${PARAM}   
+* -e 参数传递,须在dockerfile中使用${PARAM}
 
 ```shell
 -e "PARAM=dev"
@@ -16,6 +16,7 @@
 ```
 
 * docker网络
+
 ```shell
 # 查看所有网络
 docker network ls
@@ -26,15 +27,11 @@ docker network create [网络名称]
 # 删除网络
 docker network rm [网络ID]
 
-
 #将容器添加进网络中
 docker network connect [网络名称] [容器名称]
 
 #将容器从网路中一处
 docker network disconnect [网络名称] [容器名称]
-
-
-
 ```
 
 * -p [对外端口]:[内部端口]
