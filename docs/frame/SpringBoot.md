@@ -6,8 +6,10 @@
 
 * 在application.yml 中配置
 * Jar包运行,在命令后面添加
+  
   > java -jar springboot.jar --spring.profiles.active=dev
 * 添加JVM参数
+  
   > java -jar springboot.jar -Dspring.profiles.active=dev
 * Tomcat war包启动,修改/bin/catalina.bat(Linux下为catalina.sh)
   > @echo off
@@ -100,45 +102,190 @@ com.fool.ThreadPoolAutoConfiguration
 
 # 统一返回结果
 
-配置类
+- 配置类
 
-```java
+  ```java
+  
+  @ControllerAdvice
+  public class ResponseConfig implements ResponseBodyAdvice<Object> {
+      @Override
+      public boolean supports(MethodParameter returnType, Class<? extends HttpMessageConverter<?>> converterType) {
+          HttpServletRequest request = SpringContextUtils.getRequest();
+          // 从Http请求中获取请求头
+          String headerValue = request.getHeader(HttpHeaderConst.UNIFORM_RESPONSE);
+          return !RequestHeaderEnum.NON_UNIFORM_RESPONSE.getValue().equals(headerValue);
+      }
+  
+      @SneakyThrows
+      @Override
+      public Object beforeBodyWrite(Object body, MethodParameter returnType, MediaType selectedContentType, Class<? extends HttpMessageConverter<?>> selectedConverterType, ServerHttpRequest request, ServerHttpResponse response) {
+          // 从http请求中获取在拦截器中预处理时添加的UniformResponse注解(这里是在ResponseInterceptor中添加的)
+          // UniformResponse uniformResponseAnn = (UniformResponse) SpringContextUtils.getRequest().getAttribute(ResponseInterceptor.RESPONSE_RESULT);
+  
+          // Class<? extends Result> resultClass = uniformResponseAnn.templateClass();
+          if (body instanceof Result) {
+              return body;
+          }
+  
+          Result<Object> result = new DefaultResult<>();
+          result.setCode(Result.SUCCESS);
+          result.setData(body);
+  
+          // 设置自定义的HttpMessageConverter之后可以将此处去除
+          // 未设置自定义HttpMessageConvertor而去掉这行,会报ClassCastException
+          // if (body instanceof String) {
+          //     return JSONObject.toJSONString(result);
+          // }
+  
+  
+          return result;
+      }
+  }
+  ```
 
-@ControllerAdvice
-public class ResponseConfig implements ResponseBodyAdvice<Object> {
-    @Override
-    public boolean supports(MethodParameter returnType, Class<? extends HttpMessageConverter<?>> converterType) {
-        HttpServletRequest request = SpringContextUtils.getRequest();
-        // 从Http请求中获取请求头
-        String headerValue = request.getHeader(HttpHeaderConst.UNIFORM_RESPONSE);
-        return !RequestHeaderEnum.NON_UNIFORM_RESPONSE.getValue().equals(headerValue);
-    }
+- 自定义HttpMessageConverter
 
-    @SneakyThrows
-    @Override
-    public Object beforeBodyWrite(Object body, MethodParameter returnType, MediaType selectedContentType, Class<? extends HttpMessageConverter<?>> selectedConverterType, ServerHttpRequest request, ServerHttpResponse response) {
-        // 从http请求中获取在拦截器中预处理时添加的UniformResponse注解(这里是在ResponseInterceptor中添加的)
-        // UniformResponse uniformResponseAnn = (UniformResponse) SpringContextUtils.getRequest().getAttribute(ResponseInterceptor.RESPONSE_RESULT);
+  如果不用自定义,那么当方法返回值为String类型时,响应请求头为text/plain,使用后变为application/json
 
-        // Class<? extends Result> resultClass = uniformResponseAnn.templateClass();
-        if (body instanceof Result) {
-            return body;
-        }
+  ```java
+  
+  /**
+   * @author fool
+   * @date 2021/12/14 14:22
+   */
+  @Configuration
+  public class BeanConfig {
+  
+      /**
+       * 使用fastjson将所有的返回值都转成json格式,并将默认的Content-Type设置为application/json
+       * @return 自定义的HttpMessageConverter
+       */
+      @Bean
+      public HttpMessageConverter<?> fastJsonHttpMessageConverter() {
+          FastJsonHttpMessageConverter fastJsonHttpMessageConverter = new FastJsonHttpMessageConverter();
+          // 此处获取的是不可修改的list,所以在下面需要重新创建一个list实例
+          List<MediaType> supportedMediaTypes = fastJsonHttpMessageConverter.getSupportedMediaTypes();
+          // 第三个参数用于排序
+          MediaType mediaType = new MediaType("application", "json", 1.0);
+  
+          ArrayList<MediaType> mediaTypes = new ArrayList<>(supportedMediaTypes);
+          mediaTypes.add(mediaType);
+  
+          fastJsonHttpMessageConverter.setSupportedMediaTypes(Collections.unmodifiableList(mediaTypes));
+          return fastJsonHttpMessageConverter;
+      }
+  
+  }
+  ```
 
-        Result<Object> result = new DefaultResult<>();
-        result.setCode(Result.SUCCESS);
-        result.setData(body);
+- 自定义HttpMessageConvertor能改变响应请求头的原因
 
-        if (body instanceof String) {
-            return JSONObject.toJSONString(result);
-        }
+  通过查看源码发现Http响应最终是使用HttpMessageConvertor的实现类进行转换(AbstractMessageConverterMethodProcessor.writeWithMessageConverters)
 
+  ```java
+  // AbstractMessageConverterMethodProcessor Line 271...
+  if (body != null) {
+  	Object theBody = body;
+  	LogFormatUtils.traceDebug(logger, traceOn ->
+  			"Writing [" + LogFormatUtils.formatValue(theBody, !traceOn) + "]");
+  	addContentDispositionHeader(inputMessage, outputMessage);
+  	if (genericConverter != null) {
+           // genericConverter是HttpMessageConvertor的一个子类
+  		genericConverter.write(body, targetType, selectedMediaType, outputMessage);
+  	}
+  	else {
+  		((HttpMessageConverter) converter).write(body, selectedMediaType, outputMessage);
+  	}
+  }
+  ```
 
-        return result;
-    }
-}
+  当接口返回值为String类型时,默认由StringHttpMessageConvertor进行响应.
 
-```
+  为了实现统一的返回结果,需要在ResponseBodyAdvice.beforeBodyWrite中将范围值设置成Result类型.
+
+  但此时使用的仍旧是StringHttpMessageConvertor,所以会报ClassCaseException
+
+  所以需要使用自定义的HttpMessageConvertor,正好FastJson提供了已经编写好的FastJsonHttpMessageConverter
+
+  配置好FastJsonHttpMessageConverter之后,重新调用接口,接口无报错,但是响应头的Content-Type为text/plain
+
+  继续查看源码,发现Content-type由MediaType控制,而MediaType来源于HttpMessageConvertor
+
+  ```java
+  // AbstractMessageConverterMethodProcessor类中的方法
+  protected List<MediaType> getProducibleMediaTypes(
+  		HttpServletRequest request, Class<?> valueClass, @Nullable Type targetType) {
+  	Set<MediaType> mediaTypes =
+  			(Set<MediaType>) request.getAttribute(HandlerMapping.PRODUCIBLE_MEDIA_TYPES_ATTRIBUTE);
+  	if (!CollectionUtils.isEmpty(mediaTypes)) {
+  		return new ArrayList<>(mediaTypes);
+  	}
+  	else if (!this.allSupportedMediaTypes.isEmpty()) {
+  		List<MediaType> result = new ArrayList<>();
+  		for (HttpMessageConverter<?> converter : this.messageConverters) {
+  			if (converter instanceof GenericHttpMessageConverter && targetType != null) {
+  				if (((GenericHttpMessageConverter<?>) converter).canWrite(targetType, valueClass, null)) {
+                        // 此处获取HttpMessageConvertor
+  					result.addAll(converter.getSupportedMediaTypes());
+  				}
+  			}
+  			else if (converter.canWrite(valueClass, null)) {
+                    // 此处获取HttpMessageConvertor
+  				result.addAll(converter.getSupportedMediaTypes());
+  			}
+  		}
+  		return result;
+  	}
+  	else {
+  		return Collections.singletonList(MediaType.ALL);
+  	}
+  }
+  ```
+
+  并且在获取MediaType数组后,会进行排序,然后使用第一个MediaType
+
+  ```java
+  HttpServletRequest request = inputMessage.getServletRequest();
+  List<MediaType> acceptableTypes = getAcceptableMediaTypes(request);
+  // 将HttpMessageConvertor中的MediaType
+  List<MediaType> producibleTypes = getProducibleMediaTypes(request, valueType, targetType);
+  if (body != null && producibleTypes.isEmpty()) {
+  	throw new HttpMessageNotWritableException(
+  			"No converter found for return value of type: " + valueType);
+  }
+  List<MediaType> mediaTypesToUse = new ArrayList<>();
+  
+  for (MediaType requestedType : acceptableTypes) {
+  	for (MediaType producibleType : producibleTypes) {
+  		if (requestedType.isCompatibleWith(producibleType)) {
+  			mediaTypesToUse.add(getMostSpecificMediaType(requestedType, producibleType));
+  		}
+  	}
+  }
+  if (mediaTypesToUse.isEmpty()) {
+  	if (body != null) {
+  		throw new HttpMediaTypeNotAcceptableException(producibleTypes);
+  	}
+  	if (logger.isDebugEnabled()) {
+  		logger.debug("No match for " + acceptableTypes + ", supported: " + producibleTypes);
+  	}
+  	return;
+  }
+  // 将获取到的MediaType进行排序,并根据条件获取实际的MediaType
+  MediaType.sortBySpecificityAndQuality(mediaTypesToUse);
+  for (MediaType mediaType : mediaTypesToUse) {
+  	if (mediaType.isConcrete()) {
+  		selectedMediaType = mediaType;
+  		break;
+  	}
+  	else if (mediaType.isPresentIn(ALL_APPLICATION_MEDIA_TYPES)) {
+  		selectedMediaType = MediaType.APPLICATION_OCTET_STREAM;
+  		break;
+  	}
+  }
+  ```
+
+  回到BeanConfig,在实例化FastJsonHttpMessageConverter时,添加一个application/json的MediaType,并将用于排序的qualityValue设置为最大1.0(qualityValue范围为0.0 ~ 1.0).由于FastJsonHttpMessageConverter.getSupportedMediaTypes返回的是一个UnmodifiableRandomAccessList(不可修改数组),所以需要将UnmodifiableRandomAccessList转成ArrayList后添加MediaType.最后将包含新建的MediaType的list赋值给FastJsonHttpMessageConverter.
 
 # 自定义application.yml中的参数
 
@@ -688,6 +835,7 @@ public class SwaggerConfig {
 ## 坑
 
 * Junit单元测试时,需在@SpringbootTest注解中添加webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT参数
+  
   > @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 
 # 整合Redis
@@ -1145,14 +1293,13 @@ spring:
 
 ## @Autowired
 
-* 参数   
-  | 参数名称 | 参数类型 | 说明 |   
-  | ---- | ---- | ---- |   
-  | required | boolean | 决定当前所需注入的Bean是否必须存在实例化对象 |
+| 参数名称 | 参数类型 | 说明 |   
+| ---- | ---- | ---- |   
+| required | boolean | 决定当前所需注入的Bean是否必须存在实例化对象 |
 
 ## @ConditionalOnProperty
 
-* 参数 | 参数名称 | 参数类型 | 说明 |   
-  | ---- | ---- | ---- |   
-  | name | String | application.yml中的参数名称 | | havingValue | String |
-  只有application.yml中的值与havingValue中的值匹配时才会被Springboot管理 |
+| 参数        | 参数名称 | 参数类型 | 说明                                                         |
+| ----------- | -------- | -------- | ------------------------------------------------------------ |
+| name        |          | String   | application.yml中的参数名称                                  |
+| havingValue |          | String   | 只有application.yml中的值与havingValue中的值匹配时才会被Springboot管理 |

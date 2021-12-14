@@ -15,6 +15,11 @@
 --link mysql:mysql
 ```
 
+* 进入运行中的容器
+```shell
+docker exec -it [容器ID] /bin/sh
+```
+
 * docker网络
 
 ```shell
@@ -32,6 +37,9 @@ docker network connect [网络名称] [容器名称]
 
 #将容器从网路中一处
 docker network disconnect [网络名称] [容器名称]
+
+#查看对应网络详情
+docker network inspect [网络名称]
 ```
 
 * -p [对外端口]:[内部端口]
@@ -57,7 +65,7 @@ docker network disconnect [网络名称] [容器名称]
    dockerfile必须与demo-0.0.1-SNAPSHOT.jar在同一目录下   
    ${PROFILE}可通过docker命令-e在进行参数传递
 
-```
+```dockerfile
 FROM java:11.0.11
 ADD demo-0.0.1-SNAPSHOT.jar demo.jar
 EXPOSE 7777

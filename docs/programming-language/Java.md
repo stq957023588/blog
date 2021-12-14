@@ -2,6 +2,110 @@
 
 一个面向对象的编程语言
 
+# JVM
+
+
+
+# java-agent
+
+## 给运行中的Java程序添加代理
+
+1. 代理方法,代理方法名称为agentmain
+
+```java
+public class TestAgent {
+
+    public static void agentmain(String args, Instrumentation instrumentation) {
+        System.out.println("load agent after main run.args=" + args);
+        Class<?>[] classes = instrumentation.getAllLoadedClasses();
+
+        for (Class<?> cls : classes) {
+            System.out.println(cls.getName());
+        }
+        System.out.println("agent run completely");
+    }
+}
+```
+
+2. 使用maven进行打包,需要添加maven插件
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.fool</groupId>
+    <artifactId>AgentDemo</artifactId>
+    <version>0.0.1</version>
+
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+    </properties>
+    <!--...-->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                        </manifest>
+                        <manifestEntries>
+                            <Agent-Class>
+                                <!--代理类全名-->
+                                com.fool.TestAgent
+                            </Agent-Class>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+```
+
+3. 任意启动一个java程序叫做程序A,例:一个空的tomcat,或者新建springboot程序执行
+
+4. 使用jps命令获取启动的java程序的pid
+
+```shell
+jps
+#23136 Jps
+#23112 RemoteMavenServer36
+#19564
+#23308 Launcher
+#23772 Application
+```
+
+5. 向程序A中注入代理
+
+```java
+
+public class Application {
+
+    public static void main(String[] args) {
+        try {
+            // 23772是java程序的PID
+            VirtualMachine vm = VirtualMachine.attach("23772");
+            // loadAgent方法参数第一个是代理jar的地址,第二个参数是JVM参数,由agentmain中的第一个参数接收
+            vm.loadAgent("E:\\workspace\\AgentDemo\\target\\AgentDemo-0.0.1.jar");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+}
+```
+
+6. 打开程序A的输出控制台,可以发现已经执行了TestAgent.agentmain()方法
+
 # 线程
 
 ## 线程池
