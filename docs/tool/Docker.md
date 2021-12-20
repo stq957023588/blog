@@ -44,6 +44,46 @@ docker network inspect [网络名称]
 
 * -p [对外端口]:[内部端口]
 
+* 复制宿主机的文件到容器
+
+  ```shel
+  docker cp [宿主机文件路径] [容器名称]:[容器文件夹]
+  ```
+
+* 复制容器文件到宿主机
+
+  ```shel
+  docker cp [容器名称]:[容器文件] [宿主机文件路径]
+  ```
+
+  
+
+## 常用镜像命令
+
+### mysql命令
+
+- 普通启动
+
+  ```she
+  docker run -d --name mysql8 -p 3306:3306 -e MYSQL_ROOT_PASSWORD=123456 mysql:latest --lower_case_table_names=1
+  ```
+
+- 导出指定database数据
+
+  ```she
+  docker exec -it  [容器名称] mysqldump -u[用户名] -p[密码] [database] > [保存到本地的SQL文件地址]
+  ```
+
+- 导出全部数据以及表结构
+
+  ```she
+  docker exec -it  [容器名称] mysqldump -u[用户名] -p[密码] --all-databases > [保存到本地的SQL文件地址]
+  ```
+
+  
+
+
+
 ## 制作Springboot项目镜像
 
 1. pom.xml修改spring-boot-maven-plugin,configuration下添加layers

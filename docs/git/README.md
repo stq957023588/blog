@@ -59,6 +59,28 @@
 或者
 > git remote set-url origin [项目地址]
 
+## 上传本地项目到GitHub
 
+1. GitHub上新建仓库
 
+2. 初始化本地项目,在项目根目录下执行
 
+   ```shell
+   git init
+   ```
+
+3. 添加远程版本仓库
+
+   ```shell
+   git remote origin [远程仓库地址]
+   ```
+
+4. 提交代码
+
+   ```shell
+   git add .
+   git commit -m "提交注释"
+   git push origin main
+   ```
+
+   
