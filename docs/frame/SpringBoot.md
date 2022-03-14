@@ -32,6 +32,83 @@ spring:
       max-request-size: 10MB
 ```
 
+# 集成PageHelper
+
+1. 依赖
+
+   ```xml
+         <dependency>
+               <groupId>com.github.pagehelper</groupId>
+               <artifactId>pagehelper-spring-boot-starter</artifactId>
+               <version>${pagehelper.version}</version>
+           </dependency>	
+   ```
+
+## 集成PageHelper问题
+
+1. 无法在PageHelper自带的mybatis拦截器前添加新的拦截器
+
+   取消PageHelper的自动装配,自定义PageHelperConfiguration,在PageInterceptor前添加自定义的拦截器
+
+   ```java
+   /**
+    * @author fool
+    * @date 2022/1/12 16:04
+    */
+   @Configuration
+   @ConditionalOnClass(SqlSessionFactory.class)
+   @EnableConfigurationProperties(PageHelperProperties.class)
+   @AutoConfigureAfter(MybatisAutoConfiguration.class)
+   public class PageHelperConfiguration implements InitializingBean {
+       private final List<SqlSessionFactory> sqlSessionFactoryList;
+   
+       private final PageHelperProperties properties;
+   
+       public PageHelperConfiguration(List<SqlSessionFactory> sqlSessionFactoryList, PageHelperProperties properties) {
+           this.sqlSessionFactoryList = sqlSessionFactoryList;
+           this.properties = properties;
+       }
+   
+       @Override
+       public void afterPropertiesSet() throws Exception {
+        	// PageHelper自带的拦截器   
+           PageInterceptor pageInterceptor = new PageInterceptor();
+           // d
+           MybatisInterceptor mybatisInterceptor = new MybatisInterceptor();
+           pageInterceptor.setProperties(this.properties);
+           for (SqlSessionFactory sqlSessionFactory : sqlSessionFactoryList) {
+               org.apache.ibatis.session.Configuration configuration = sqlSessionFactory.getConfiguration();
+               if (!containsInterceptor(configuration, pageInterceptor)) {
+                   configuration.addInterceptor(pageInterceptor);
+               }
+               if (!containsInterceptor(configuration, mybatisInterceptor)) {
+                   configuration.addInterceptor(mybatisInterceptor);
+               }
+           }
+       }
+   
+       /**
+        * 是否已经存在相同的拦截器
+        *
+        * @param configuration
+        * @param interceptor
+        * @return
+        */
+       private boolean containsInterceptor(org.apache.ibatis.session.Configuration configuration, Interceptor interceptor) {
+           try {
+               // getInterceptors since 3.2.2
+               return configuration.getInterceptors().contains(interceptor);
+           } catch (Exception e) {
+               return false;
+           }
+       }
+   
+   }
+   
+   ```
+
+   
+
 # 自动装配原理
 
 https://www.cnblogs.com/javaguide/p/springboot-auto-config.html

@@ -171,11 +171,29 @@ ThreadPoolExecutor threadPoolExecutor=new ThreadPoolExecutor(5,5,1,TimeUnit.MINU
 
 当被native修饰时,表明这是一个本地方法,本地方法是用非Java语言编写的,在Java程序外实现,由JVM去调用.[详细说明](https://blog.csdn.net/wike163/article/details/6635321)
 
+# 源码分析
+
+## HashMap
+
+### HashMap容量为什么为2的指数
+
+HashMap中将hash生成的整型转换成链表数组中的下标的方法使用的位运算return h & (length-1) 表示的是 h 除以 length - 1 取余,而要使位运算成立,length必须为2的指数
+
+
+
 # 第三方类库
 
 ## MapStruct
 
 类转换
+
+## So-Token
+
+轻量级 Java 权限认证框架 [官网](https://sa-token.dev33.cn/doc/)
+
+## Forest
+
+将Http映射成接口 [官网](https://forest.dtflyx.com/docs/)
 
 ## Faker
 
