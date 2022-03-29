@@ -14,6 +14,10 @@
 
 * [SpringBoot](/frame/SpringBoot.md)
 
+* [Mybatis](/frame/Mybatis.md)
+
+* [SpringCloud](/frame/SpringCloud.md)
+
 * [Vue](/frame/Vue.md)
 
 # 算法与数据结构
