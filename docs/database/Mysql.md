@@ -1,9 +1,117 @@
 # 基础操作
 
 * 查看是否有安装Mysql
+  
   > mysql -V
+  
 * 查询my.cnf所在位置
+  
   > find / -name my.cnf
+
+# 常用方法
+
+## 随机中国人名
+
+```sql
+create definer = root@`%` function rand_name() returns varchar(16)
+begin
+    declare family_str varchar(256) default '赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜戚谢邹喻柏水窦章云苏潘葛奚范彭郎鲁韦昌马苗凤花方俞任袁柳酆鲍史唐费廉岑薛雷贺倪汤滕殷罗毕郝邬安常乐于时傅皮卞齐康伍余元卜顾孟平黄和穆萧尹姚邵湛汪祁毛禹狄米贝明臧计伏成戴谈宋茅庞熊纪舒屈项祝董梁杜阮蓝闵席季麻强贾路娄危江童颜郭梅盛林刁锺徐邱骆高夏蔡田樊胡凌霍虞万支柯昝管卢莫';
+    declare name_str varchar(512) default '谦亨奇固之轮翰朗伯宏先柏镇淇淳一洁铭皑言若鸣朋斌梁栋维启克伦翔旭鹏泽晨辰士以建家致树炎德行时泰盛雄琛钧冠策腾楠榕风航弘瑛玲憧萍雪珍滢筠柔竹霭凝晓欢霄枫芸菲寒伊亚宜可姬舒影荔枝丽秀娟英华慧巧美静淑惠珠莹雪琳晗瑶允元源渊和函妤宜云琪勤珍贞莉兰凤洁琳素云莲真环雪荣爱妹霞亮香月媛艳瑞凡佳嘉叶璧璐娅琦晶妍茹清吉克茜秋珊莎锦黛青倩婷姣婉娴瑾颖露瑶怡婵雁蓓纨仪荷丹蓉眉君琴蕊薇菁梦岚苑婕馨瑗琰韵融园艺咏卿聪澜纯毓悦昭冰爽琬茗羽希宁欣飘育涵琴晴丽美瑶梦茜倩希夕月悦乐彤影珍依沫玉灵瑶嫣倩妍萱漩娅媛怡佩淇雨娜莹娟文芳莉雅芝文晨宇怡全子凡悦思奕依浩泓钊钧铎';
+    declare i int default 0;
+    declare full_name varchar(32) default '';
+    declare rand_num int default 0;
+    # 姓氏
+    set full_name = concat(full_name,substr(family_str,floor(1+rand()*160),1));
+    set full_name = concat(full_name,substr(name_str,floor(1+rand()*256),1));
+    set rand_num = rand()*10;
+    set full_name= if(rand_num>5,concat(full_name,substr(name_str,floor(1+rand()*256),1)),full_name);
+    set rand_num = rand()*100;
+    set full_name= if(rand_num<2,concat(full_name,substr(name_str,floor(1+rand()*256),1)),full_name);
+
+    return full_name;
+end;
+```
+
+## 随机地名
+
+```sql
+create definer = root@`%` function rand_place_name(len int) returns varchar(32)
+begin
+    declare prefixPool varchar(512) default '谦亨奇固之轮翰朗伯宏先柏镇淇淳一洁铭皑言若鸣朋斌梁栋维启克伦翔旭鹏泽晨辰士以建家致树炎德行时泰盛雄琛钧冠策腾楠榕风航弘瑛玲憧萍雪珍滢筠柔竹霭凝晓欢霄枫芸菲寒伊亚宜可姬舒影荔枝丽秀娟英华慧巧美静淑惠珠莹雪琳晗瑶允元源渊和函妤宜云琪勤珍贞莉兰凤洁琳素云莲真环雪荣爱妹霞亮香月媛艳瑞凡佳嘉叶璧璐娅琦晶妍茹清吉克茜秋珊莎锦黛青倩婷姣婉娴瑾颖露瑶怡婵雁蓓纨仪荷丹蓉眉君琴蕊薇菁梦岚苑婕馨瑗琰韵融园艺咏卿聪澜纯毓悦昭冰爽琬茗羽希宁欣飘育涵琴晴丽美瑶梦茜倩希夕月悦乐彤影珍依沫玉灵瑶嫣倩妍萱漩娅媛怡佩淇雨娜莹娟文芳莉雅芝文晨宇怡全子凡悦思奕依浩泓钊钧铎';
+    declare suffixPool varchar(256) default '市县镇村城街路巷角州';
+    declare place_name varchar(32) default '';
+
+    declare i int unsigned default 0;
+    while i < len
+        do
+            set place_name = concat(place_name, substr(prefixPool, floor(rand() * 269), 1));
+            set i = i + 1;
+        end while;
+    set place_name = concat(place_name, substr(suffixPool, floor(rand() * 11), 1));
+
+    return place_name;
+end;
+```
+
+## 随机字母数字字符串
+
+```sql
+create definer = root@`%` function rand_str(length int) returns varchar(255)
+BEGIN
+    DECLARE i INT UNSIGNED DEFAULT 0; DECLARE v_result VARCHAR(200) DEFAULT ''; DECLARE v_dict VARCHAR(200) DEFAULT '';
+    SET v_dict = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    SET v_dict = LPAD(v_dict, 200, v_dict);
+    WHILE i < length
+        DO
+            SET v_result = CONCAT(v_result, SUBSTR(v_dict, CEIL(RAND() * 200), 1)); SET i = i + 1;
+        END WHILE;
+    RETURN v_result;
+END;
+```
+
+
+
+# 索引
+
+## 索引失效的情况
+
+1. 当使用 like 时 % 在前面(e: name like '%Rose'),其他情况诸如在中间以及末尾索引都会生效(e:name like 'R%ose%')
+
+2. 当使用or时可能会失效
+
+   1. or 两边都是同一个表的条件时,两边的字段都是索引时,索引生效(e: s.name = 'rose' or s.age = 14,age 和 name都是索引);当其中一个不是索引的时候,两个字段的索引都不会生效(e: s.remark = '123' or s.name = 'rose', remark 不是索引, name是索引)
+   2. or 两边不是同一个表的条件,并且时以join进行关联时,不管主表字段是否时索引字段,只要join表的字段是索引,那么join表的字段索引一定会被触发
+
+3. 使用组合索引时,如果查询条件中没有带有索引第一个字段,则索引失效,
+
+   ```sql
+   create index test on student(name,age,sex);
+   # 索引生效
+   select * from student where name = 'rose' and age =11 and sex = 0;
+   # 索引生效
+   select * from student where name = 'rose' and sex = 0;
+   # 索引未生效
+   select * from student where name = 'rose' and age =11 and sex = 0;
+   ```
+
+4. 当索引字段冲突时,后面创建的索引失效
+
+5. 当查询字段是varchar时,条件为数字时(e: name = 123, name是varchar),发生隐式转换,会导致索引失效,而当查询字段是数字,而条件是字符串时,索引仍旧为生效
+
+   ```sql
+   create index student_name on student(name);
+   create index student_age on student(age);
+   # 索引失效
+   select * from student where name = 123;
+   # 索引生效
+   select * from student where age = '123';
+   ```
+
+6. 对字段进行操作,或者使用函数时索引失效(e: age + 1 = 10;left(name, 2) = 'rose')
+
+7. 使用 !=, not 时索引可能失效,原因就是第八条:当全表扫描速度比索引速度快时，mysql会使用全表扫描，此时索引失效
+
+8. 当全表扫描速度比索引速度快时，mysql会使用全表扫描，此时索引失效。
 
 # 创建用户
 
@@ -24,8 +132,9 @@
   > server-id=1
 
 * 重启主数据库
+  
   > service mysqld restart
-
+  
 * 创建用于复制数据的账号
   ```sql
   # 创建账号 123.123.123.123是从数据库所在服务器的ip地址
@@ -80,8 +189,9 @@
 ## 多主一从
 
 * 配置主数据
+  
   > 主数据库配置与一主一从一致,但是每个主数据库的server-id不能相同
-
+  
 * 配置从数据库
   > 在一主一从的配置基础上添加2行配置
   > [mysqld]
