@@ -4,7 +4,49 @@
 
 # JVM
 
+## 内存模型
 
+
+
+# 常用类解析
+
+## List
+
+### ArrayList,LinkedList区别
+
+ArrayList
+
+* 使用的是动态数组结构
+* 对于随机访问的set和get相对速度较快
+* 对于插入和删除操作,因为需要通过System.arraycopy进行数据移动,会比较耗时
+
+LinkedList
+
+* 使用的是链表结构
+* 对于get和set速度较慢,因为需要从头移动指针
+* 对于插入和删除操作,只需要移动指针即可,相对较快
+
+[参考](https://hollischuang.gitee.io/tobetopjavaer/#/basics/java-basic/arraylist-vs-linkedlist-vs-vector)
+
+## Map
+
+### HashMap和HashTable区别
+
+HashMap
+
+* 是非同步的(线程不安全)
+* 继承了AbstractMap
+* key可以出现一次null,value值可以出现多次
+* 初始容量的为16,且扩容后的容量大小一定为 2的倍数
+* 使用自定义的散列方法(hash)对key进行散列
+
+HashTable
+
+* 是同步的(线程安全)
+* 继承了Dictionary
+* key和value均不允许出现null值
+* hashtable中的数据初始容量为11,且扩容为old*2 + 1
+* 使用的key自带的散列方法
 
 # java-agent
 
@@ -106,7 +148,7 @@ public class Application {
 
 6. 打开程序A的输出控制台,可以发现已经执行了TestAgent.agentmain()方法
 
-# 线程
+# 并发
 
 ## 线程池
 
