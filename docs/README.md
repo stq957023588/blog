@@ -13,12 +13,16 @@
 # 框架
 
 * [SpringBoot](/frame/SpringBoot.md)
-
 * [Mybatis](/frame/Mybatis.md)
-
 * [SpringCloud](/frame/SpringCloud.md)
-
 * [Vue](/frame/Vue.md)
+
+# 中间件
+
+* [Solr](/middleware/Solr.md)
+* [Elastic](/middleware/Elastic.md)
+* [Redis](/middleware/Redis.md)
+* [ShardingSphere](/middleware/ShardingSphere.md)
 
 # 算法与数据结构
 

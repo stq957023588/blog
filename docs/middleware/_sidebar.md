@@ -1,2 +1,5 @@
 * [首页](/)
 * [Solr](/middleware/Solr.md)
+* [Elastic](/middleware/Elastic.md)
+* [Redis](/middleware/Redis.md)
+* [ShardingSphere](/middleware/ShardingSphere.md)

@@ -6,7 +6,157 @@
 
 ## 内存模型
 
+# API使用
 
+## CompletableFuture
+
+异步方法调用
+
+### Complete
+
+```java
+public CompletableFuture<T> whenComplete(BiConsumer<? super T,? super Throwable> action)
+public CompletableFuture<T> whenCompleteAsync(BiConsumer<? super T,? super Throwable> action)
+public CompletableFuture<T> whenCompleteAsync(BiConsumer<? super T,? super Throwable> action, Executor executor)
+```
+
+使用
+
+```java
+CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
+    try {
+        TimeUnit.SECONDS.sleep(2);
+    } catch (InterruptedException e) {
+        e.printStackTrace();
+    }
+
+    return "SUCCESS";
+});
+
+
+future.whenComplete((result, error) -> {
+    System.out.println("error: " + error);
+    System.out.println("val: " + result);
+}).whenComplete((result,error) -> {
+    System.out.println("error: " + error);
+    System.out.println("val: " + result);
+});
+```
+
+输出:
+
+```
+error: null
+val: SUCCESS
+error: null
+val: SUCCESS
+```
+
+complete返回的仍旧是第一个CompletableFuture,无法自定义返回值
+
+### Handle
+
+```java
+public <U> CompletableFuture<U> handle(BiFunction<? super T,Throwable,? extends U> fn)
+public <U> CompletableFuture<U> handleAsync(BiFunction<? super T,Throwable,? extends U> fn)
+public <U> CompletableFuture<U> handleAsync(BiFunction<? super T,Throwable,? extends U> fn, Executor executor)
+```
+
+使用
+
+```java
+CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
+    try {
+        TimeUnit.SECONDS.sleep(2);
+    } catch (InterruptedException e) {
+        e.printStackTrace();
+    }
+
+    return "SUCCESS";
+});
+
+future.handle((result, error) -> {
+    Optional.ofNullable(error).ifPresent(Throwable::printStackTrace);
+    return result.length();
+}).handle((result, error) -> {
+    Optional.ofNullable(error).ifPresent(Throwable::printStackTrace);
+    return result == 9;
+}).thenAccept(result -> {
+    System.out.println("final result:" + result);
+});
+```
+
+Handle方法可自定义返回值,用于下一个CompletableFuture
+
+### Apply
+
+```java
+public <U> CompletableFuture<U> thenApply(Function<? super T,? extends U> fn)
+public <U> CompletableFuture<U> thenApplyAsync(Function<? super T,? extends U> fn)
+public <U> CompletableFuture<U>  thenApplyAsync(Function<? super T,? extends U> fn, Executor executor)
+```
+
+使用
+
+```java
+CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
+    try {
+        TimeUnit.SECONDS.sleep(2);
+    } catch (InterruptedException e) {
+        e.printStackTrace();
+    }
+
+    return "SUCCESS";
+});
+
+
+future.thenApply(result -> {
+    String s = result.toLowerCase(Locale.ROOT);
+    return s.length();
+}).thenApply(result -> {
+    result += 10;
+    return result;
+}).thenAccept(System.out::println);
+```
+
+apply方法类似handle,但不会再每一层对error进行处理
+
+### Exception
+
+异常捕获
+
+```java
+public CompletableFuture<T> exceptionally(Function<Throwable, ? extends T> fn)
+```
+
+使用
+
+```java
+CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
+    try {
+        TimeUnit.SECONDS.sleep(2);
+    } catch (InterruptedException e) {
+        e.printStackTrace();
+    }
+
+    return "SUCCESS";
+});
+
+future.thenApply(result -> {
+    if ("T".equals(result)){
+        return "T-001";
+    }
+    return null;
+}).thenApply(result -> {
+    int l = result.length();
+    return l + 1;
+}).exceptionally(error -> {
+    error.printStackTrace();
+    return 0;
+}).thenAccept(System.out::println);
+```
+
+最终结果输出0
 
 # 常用类解析
 
