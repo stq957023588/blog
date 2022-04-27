@@ -32,6 +32,8 @@ spring:
       max-request-size: 10MB
 ```
 
+
+
 # 集成PageHelper
 
 1. 依赖
@@ -363,6 +365,51 @@ com.fool.ThreadPoolAutoConfiguration
   ```
 
   回到BeanConfig,在实例化FastJsonHttpMessageConverter时,添加一个application/json的MediaType,并将用于排序的qualityValue设置为最大1.0(qualityValue范围为0.0 ~ 1.0).由于FastJsonHttpMessageConverter.getSupportedMediaTypes返回的是一个UnmodifiableRandomAccessList(不可修改数组),所以需要将UnmodifiableRandomAccessList转成ArrayList后添加MediaType.最后将包含新建的MediaType的list赋值给FastJsonHttpMessageConverter.
+  
+- 访问找不到路径的情况下,仍旧范围200的情况,定义全局异常处理,返回统一的结果类
+
+  ```java
+  @Slf4j
+  @RestControllerAdvice(basePackages="project package ")
+  public class GlobalExceptionHandler {
+  
+      @ResponseBody
+      @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+      @ExceptionHandler({Exception.class})
+      public DefaultResult<Object> handleException(Exception e, HttpServletRequest request) {
+  		// 异常处理
+          return DefaultResult.error(e.getMessage());
+      }
+  
+      @ResponseBody
+      @ExceptionHandler({NoHandlerFoundException.class})
+      @ResponseStatus(HttpStatus.NOT_FOUND)
+      public ErrorResult<Object> handleNoHandlerFoundException(Exception e, HttpServletRequest request) {
+  		// 异常处理
+          return  new ErrorResult<>(HttpStatus.NOT_FOUND.value(),HttpStatus.NOT_FOUND.getReasonPhrase(),request.getServletPath());
+      }
+  
+  }
+  
+  ```
+
+- 修改yml文件
+
+  ```yaml
+  spring:
+    # 404会抛出错误设置,防止找不到路径http返回码还是200
+    mvc:
+      throw-exception-if-no-handler-found: true
+    # 404会抛出错误设置,防止找不到路径http返回码还是200
+    resources:
+      add-mappings: false
+  ```
+
+  
+
+## 与Swagger冲突的地方
+
+在将spring.resources.add-mappings 设置为 false 之后,会导致swagger无法访问,需要将GlobalExceptionHandler和ResponseConfig类上的 ControllerAdvice 修改为  @RestControllerAdvice(basePackages="project package")
 
 # 自定义application.yml中的参数
 
@@ -894,6 +941,7 @@ public class SwaggerConfig {
 ## 集成Swagger中的坑
 
 * 在2.9.2 版本中使用@ApiParam(defaultValue = "1") 会报错,这是版本Bug
+* 如果配置了统一返回结果而设置了spring.resources.add-mappings=false,swagger-ui/index.html会访问不到,可以在配置统一返回结果的地方将@ControllerAdvice改成@RestControllerAdvice(basePackages="project packages")
 
 # 集成Solr
 
@@ -1361,6 +1409,35 @@ spring:
       username:
       password:
 ```
+
+# 取消Bean的单例模式
+
+使用`@Scope`搭配 `@Controller`、`@Service`、`@Repository`、`@Component` 、`@Bean` 使用，修饰类
+
+```java
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Scope {
+    @AliasFor("scopeName")
+    String value() default "";
+
+    @AliasFor("value")
+    String scopeName() default "";
+
+    ScopedProxyMode proxyMode() default ScopedProxyMode.DEFAULT;
+}
+```
+
+value 取值列表:
+
+- `singleton`：单例，（默认）
+- `prototype`：多例
+- `request` ：用于web项目，当有新的Http请求时，就会创建一个新对象，在该请求期间，是单例的
+- `session`：用于web项目，当有新的Http session时，就会创建一个新对象，在当前session期间，是单例的
+- `globalsession`：用于web项目，应用在集群，全局session。不是集群时，功能同session。
+
+>[参考](https://www.malaoshi.top/show_1IX1mKQApo4.html)
 
 # 测试
 
