@@ -114,6 +114,17 @@ spring:
               max-vibration-offset: 3
 ```
 
+配置绑定表,存在多表关联查询时添加绑定表设置,以防止笛卡尔积
+
+```yaml
+spring:
+  shardingsphere:
+    rules:
+      sharding:
+        binding-tables:
+          - order,order_detail
+```
+
 
 
 给具体的表定义分片规则,以及唯一键生成器定义
