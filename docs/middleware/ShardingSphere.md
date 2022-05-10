@@ -125,6 +125,110 @@ spring:
           - order,order_detail
 ```
 
+读写分离
+
+> 读写分离使用的数据源是在spring.shardingsphere.rules.readwrite-splitting.data-sources定义的数据源名称
+
+```yaml
+spring:
+  shardingsphere:
+    datasource:
+      names: sharding00,sharding01,read00,read01
+      # 定义数据源
+      read00:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        jdbc-url: jdbc:mysql://127.0.0.1:3305/sharding_00?allowPublicKeyRetrieval=true
+        username: root
+        password: 123456
+      read01:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        jdbc-url: jdbc:mysql://127.0.0.1:3305/sharding_01?allowPublicKeyRetrieval=true
+        username: root
+        password: 123456
+      sharding00:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        jdbc-url: jdbc:mysql://127.0.0.1:3306/sharding_00?allowPublicKeyRetrieval=true
+        username: root
+        password: 123456
+      sharding01:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        jdbc-url: jdbc:mysql://127.0.0.1:3306/sharding_01?allowPublicKeyRetrieval=true
+        username: root
+        password: 123456
+    rules:
+      readwrite-splitting:
+      	# 定义读写分离数据源
+        data-sources:
+          # 读写分离数据源名称,如需读写分离,在定义实际节点时使用此数据源名称
+          rws01:
+            load-balancer-name: normal
+            type: Static
+            props:
+           	  # 写数据源,使用spring.shardingsphere.datasource下定义的数据源名称
+              write-data-source-name: sharding01
+              # 读数据源,使用spring.shardingsphere.datasource下定义的数据源名称
+              read-data-source-names: read01
+          rws00:
+            load-balancer-name: normal
+            type: Static
+            props:
+              write-data-source-name: sharding00
+              read-data-source-names: read00
+        load-balancers:
+          normal:
+            type: RANDOM
+            props:
+              aaa: 0
+      sharding:
+        binding-tables:
+          - order,order_detail
+        tables:
+          order_detail:
+            # 读写分离,数据源名称 使用 spring.shardingsphere.rules.readwrite-spliting.data-sources下定义的数据源
+            actual-data-nodes: rws00.order_detail_0$->{[0,2]},rws01.order_detail_0$->{[1,3]}
+            database_strategy:
+              standard:
+                sharding-column: order_id
+                sharding-algorithm-name: mod2
+            table-strategy:
+              standard:
+                sharding-column: order_id
+                sharding-algorithm-name: mod4
+          order:
+            actual-data-nodes: rws00.order_0$->{[0,2]},rws01.order_0$->{[1,3]}
+            database-strategy:
+              standard:
+                sharding-column: id
+                sharding-algorithm-name: mod2
+            table-strategy:
+              standard:
+                sharding-column: id
+                sharding-algorithm-name: mod4
+
+```
+
+读写分离测试结果
+
+查询使用是read00数据源
+
+```
+2022-05-10 16:09:34.469  INFO 19848 --- [           main] ShardingSphere-SQL                       : Logic SQL: select * from `order` where id = ?
+2022-05-10 16:09:34.469  INFO 19848 --- [           main] ShardingSphere-SQL                       : SQLStatement: MySQLSelectStatement(table=Optional.empty, limit=Optional.empty, lock=Optional.empty, window=Optional.empty)
+2022-05-10 16:09:34.469  INFO 19848 --- [           main] ShardingSphere-SQL                       : Actual SQL: read00 ::: select * from `order_00` where id = ? ::: [204]
+```
+
+插入使用的sharding01数据源
+
+```
+2022-05-10 16:27:07.138  INFO 16084 --- [           main] ShardingSphere-SQL                       : Logic SQL: insert into `order`(id,`number`, total_price) values (?,?, ?)
+2022-05-10 16:27:07.138  INFO 16084 --- [           main] ShardingSphere-SQL                       : SQLStatement: MySQLInsertStatement(setAssignment=Optional.empty, onDuplicateKeyColumns=Optional.empty)
+2022-05-10 16:27:07.138  INFO 16084 --- [           main] ShardingSphere-SQL                       : Actual SQL: sharding01 ::: insert into `order_01`(id,`number`, total_price) values (?, ?, ?) ::: [209, 817f391bec83467b8f53f2c06e6a2de8, 41.13544372549201]
+```
+
 
 
 给具体的表定义分片规则,以及唯一键生成器定义
