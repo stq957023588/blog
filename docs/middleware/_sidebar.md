@@ -3,3 +3,4 @@
 * [Elastic](/middleware/Elastic.md)
 * [Redis](/middleware/Redis.md)
 * [ShardingSphere](/middleware/ShardingSphere.md)
+* [消息队列](/middleware/MessageQueue.md)
