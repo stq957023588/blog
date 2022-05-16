@@ -114,6 +114,42 @@ spring:
               max-vibration-offset: 3
 ```
 
+
+
+给具体的表定义分片规则,以及唯一键生成器定义
+
+```yaml
+spring:
+  shardingsphere:
+    rules:
+      sharding:
+        tables:
+          # 虚拟表名
+          order:
+            # 实际表名(数据库中存在的表名)
+            actual-data-nodes: sharding00.orders_$->{[0,2]},sharding01.orders_$->{[1,3]}
+		   # 数据源分片规则(分库规则)
+		   database-strategy:
+		     # 标准分片
+		     standard: 
+		       # 用于分片的字段
+		       sharding-column: value
+		       # 分片算法名称(在上面已经定义好了)
+                sharding-algorithm-name: mod2
+            table-strategy:
+              # 数据表分片规则(分表规则),和分库规则一样
+              standard:
+                sharding-column: value
+                sharding-algorithm-name: mod4
+            # 分布式key生成算法
+            key-generate-strategy:
+              # 分布式key字段名称
+              column: id
+              # 分布式key生成器名称
+              key-generator-name: snow1
+              
+```
+
 配置绑定表,存在多表关联查询时添加绑定表设置,以防止笛卡尔积
 
 ```yaml
@@ -229,41 +265,45 @@ spring:
 2022-05-10 16:27:07.138  INFO 16084 --- [           main] ShardingSphere-SQL                       : Actual SQL: sharding01 ::: insert into `order_01`(id,`number`, total_price) values (?, ?, ?) ::: [209, 817f391bec83467b8f53f2c06e6a2de8, 41.13544372549201]
 ```
 
-
-
-给具体的表定义分片规则,以及唯一键生成器定义
+数据加密,
 
 ```yaml
 spring:
   shardingsphere:
     rules:
-      sharding:
+      # 数据加密
+      encrypt:
+      	# 定义需要数据加密的表
         tables:
-          # 虚拟表名
-          order:
-            # 实际表名(数据库中存在的表名)
-            actual-data-nodes: sharding00.orders_$->{[0,2]},sharding01.orders_$->{[1,3]}
-		   # 数据源分片规则(分库规则)
-		   database-strategy:
-		     # 标准分片
-		     standard: 
-		       # 用于分片的字段
-		       sharding-column: value
-		       # 分片算法名称(在上面已经定义好了)
-                sharding-algorithm-name: mod2
-            table-strategy:
-              # 数据表分片规则(分表规则),和分库规则一样
-              standard:
-                sharding-column: value
-                sharding-algorithm-name: mod4
-            # 分布式key生成算法
-            key-generate-strategy:
-              # 分布式key字段名称
-              column: id
-              # 分布式key生成器名称
-              key-generator-name: snow1
-              
+          # 数据加密表名,此处的表需要在spring.shardingsphere.rules.sharding.tables下d
+          user:
+            # 是否通过加密列查询, 选择false需要定义明文列(plain-column),大多用于已存在明文的数据表,但需要进行迁移的情况
+            query-with-cipher-column: true
+            # 定义加密列
+            columns:
+              # 数据加密逻辑列名,非实际数据表中的列
+              password:
+                # 加密列,实际数据表中的列
+                cipher-column: password
+                # 明文列,实际数据表中的列,非必填,可不使用 用于存储实际数据,加密后即可获得对应加密列的值,
+                plain-column: password_plain
+                # 加密算法名
+                encryptor-name: aes_encryptor
+        # 定义加密算法
+        encryptors:
+          # 加密算法名称(自定义)
+          aes_encryptor:
+            # 加密算法类型
+            type: AES
+            # 加密算法参数
+            props:
+              aes-key-value: 123456abc
+
 ```
+
+
+
+
 
 #### 自定义分布式key
 

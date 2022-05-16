@@ -127,7 +127,88 @@ ENTRYPOINT ["java", "-jar" ,"email.jar","--spring.profiles.active=${PROFILE}"]
 docker build -t --build-arg DEPENDENCY=D:\ email:1.0.0 .
 ```
 
+## Centos安装Docker
 
+### 下载安装包安装
+
+下载安装包
+
+```shell
+wget https://download.docker.com/linux/centos/7/x86_64/stable/Packages/docker-ce-20.10.9-3.el7.x86_64.rpm
+```
+
+安装
+
+```shell
+sudo yum install docker-ce-20.10.9-3.el7.x86_64.rpm
+```
+
+可能会报错
+
+```shell
+Error: Package: containerd.io-1.6.4-3.1.el7.x86_64 (docker-ce-stable)
+           Requires: container-selinux >= 2:2.74
+           Available: 2:container-selinux-2.42-1.gitad8f0f7.el7.noarch (extras)
+               container-selinux = 2:2.42-1.gitad8f0f7.el7
+           Available: 2:container-selinux-2.55-1.el7.noarch (extras)
+               container-selinux = 2:2.55-1.el7
+           Available: 2:container-selinux-2.66-1.el7.noarch (extras)
+               container-selinux = 2:2.66-1.el7
+Error: Package: 3:docker-ce-20.10.9-3.el7.x86_64 (/docker-ce-20.10.9-3.el7.x86_64)
+           Requires: container-selinux >= 2:2.74
+           Available: 2:container-selinux-2.42-1.gitad8f0f7.el7.noarch (extras)
+               container-selinux = 2:2.42-1.gitad8f0f7.el7
+           Available: 2:container-selinux-2.55-1.el7.noarch (extras)
+               container-selinux = 2:2.55-1.el7
+           Available: 2:container-selinux-2.66-1.el7.noarch (extras)
+               container-selinux = 2:2.66-1.el7
+Error: Package: docker-ce-rootless-extras-20.10.15-3.el7.x86_64 (docker-ce-stable)
+           Requires: fuse-overlayfs >= 0.7
+Error: Package: docker-ce-rootless-extras-20.10.15-3.el7.x86_64 (docker-ce-stable)
+           Requires: slirp4netns >= 0.4
+ You could try using --skip-broken to work around the problem
+ You could try running: rpm -Va --nofiles --nodigest
+```
+
+复制第一个报错后面的依赖名称(这里是containerd.io-1.6.4-3.1.el7.x86_64),复制,依赖查找地址 [Download](https://download.docker.com/linux/centos/7/x86_64/stable/Packages/)
+
+下载安装依赖
+
+```shell
+wget https://download.docker.com/linux/centos/7/x86_64/stable/Packages/containerd.io-1.6.4-3.1.el7.x86_64.rpm
+```
+
+安装依赖
+
+```shell
+yum -y install containerd.io-1.6.4-3.1.el7.x86_64.rpm
+```
+
+如果依赖安装也报错,那么安装一下依赖
+
+```shell
+wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
+yum install epel-release -y
+yum install container-selinux -y
+```
+
+然后继续安装containerd.io-1.6.4-3.1.el7.x86_64
+
+```shell
+yum install containerd.io-1.6.4-3.1.el7.x86_64.rpm
+```
+
+最后安装Docker
+
+```shell
+yum install docker-ce-20.10.9-3.el7.x86_64.rpm
+```
+
+参考
+
+> [官方文档](https://docs.docker.com/engine/install/centos/#install-using-the-repository)
+>
+> [containerd.io安装异常解决办法](https://blog.csdn.net/weixin_56160310/article/details/120970518)
 
 ## 制作Springboot项目镜像
 
@@ -173,3 +254,45 @@ docker build -t demo:1.0.0.Beta .
 #-p 端口映射,[对外端口]:[内部端口]
 docker run -d -e "PROFILE=docker" --name demo --link redis:redis --link mysql:mysql -p 6667:6666 demo:1.0.0.Beta
 ```
+
+## 制作带项目的Tomcat镜像
+
+Dockerfile
+
+```dockerfile
+FROM tomcat:9.0.44-jdk8
+# 创建tomcat用户
+ADD tomcat-users.xml conf/tomcat-users.xml
+# Linux下tomcat不放manager.xml 可能无法访问项目管理
+ADD manager.xml conf/Catalina/localhost/manager.xml
+# 在版本9以上时,docker镜像下webapps下面是没有东西的,东西都在webapps.dist下,所以需要删除源webapps,重命名webapps.dist
+RUN rm -rf webapps && mv webapps.dist webapps
+ADD email.war webapps/email.war
+EXPOSE 8080
+CMD ["bin/catalina.sh", "run"]
+
+```
+
+tomcat-users.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<tomcat-users xmlns="http://tomcat.apache.org/xml"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://tomcat.apache.org/xml tomcat-users.xsd"
+              version="1.0">
+    <role rolename="manager-gui"/>
+    <user username="admin" password="1234" roles="manager-gui"/>
+</tomcat-users>
+
+```
+
+manager.xml
+
+```xml
+<Context privileged="true" antiResourceLocking="false"
+         docBase="${catalina.home}/webapps/manager">
+    <Valve className="org.apache.catalina.valves.RemoteAddrValve" allow="^.*$" />
+</Context>
+```
+

@@ -1,5 +1,9 @@
 # Mybatis
 
+## 流式查询
+
+
+
 ## 缓存机制
 
 [缓存机制-美团](https://tech.meituan.com/2018/01/19/mybatis-cache.html)
@@ -127,7 +131,7 @@ Student(id=5, name=Jhon, age=19)
 Student(id=5, name=Jack, age=19)
 ```
 
-## 二级缓存
+### 二级缓存
 
 二级缓存由多个SqlSessio共享,
 
