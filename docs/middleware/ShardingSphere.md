@@ -8,8 +8,6 @@
 
 基于ShardingSphere 5.1.1 版本
 
-#### 单机模式使用
-
 引入依赖(只需要引入一个就行)
 
 ```xml
@@ -27,8 +25,41 @@
 ```yaml
 spring:
   shardingsphere:
-    # 内存模式,(其他模式: 单机模式,集群模式)
+    # 内存模式Memory,不会将配置存储
+    # 单机模式Standalone,可以将配置存储到本地
+    # 集群模式Cluster,将配置存储到ZooKepper,Etcd
     mode: Memory
+```
+
+使用单机模式
+
+```yaml
+spring:
+  shardingsphere:
+    type: Standalone
+    repository:
+      type: File
+      props:
+        # 配置存储路径
+        path: E:\temporary\shardingsphere\
+```
+
+使用集群模式
+
+```yaml
+spring:
+  shardingsphere:
+    mode:
+      type: Cluster
+      repository:
+        type: ZooKeeper
+        props:
+          # 命名空间,自定义
+          namespace: shardingsphere
+          # ZooKeeper地址
+          server-lists: 127.0.0.1:2181
+          # 超时时间
+          operation-timeout-milliseconds: 2000
 ```
 
 配置数据源
@@ -117,6 +148,8 @@ spring:
 
 
 给具体的表定义分片规则,以及唯一键生成器定义
+
+> 不需要分片的表不需要进行配置,只要表所在的数据源已经定义,shardingsphere可以自动找到表所在的数据源
 
 ```yaml
 spring:

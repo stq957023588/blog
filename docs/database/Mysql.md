@@ -8,6 +8,41 @@
   
   > find / -name my.cnf
 
+# 数据库数据迁移
+
+# 一些报错
+
+无法插入Emoji表情错误
+
+```
+java.sql.SQLException: Incorrect string value: '\xF0\x9F\x90\xBA' for column 'xxx' at row 1
+```
+
+解决办法:
+
+1. 修改字段编码
+
+   ```sql
+   ALTER TABLE api_log MODIFY COLUMN remark longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
+
+2. 创建表的时候设置编码
+
+   ```sql
+   create table tableName1
+   (
+   id int not null auto_increment,
+   opName varchar(100) not null,
+   sysUrl varchar(200) not null,
+   createId varchar(36) not null,
+   createName varchar(100) not null,
+   createTime varchar(19) not null,
+   primary key (id)
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+   ```
+
+   
+
 # 常用方法
 
 ## 随机中国人名

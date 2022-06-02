@@ -32,85 +32,6 @@ spring:
       max-request-size: 10MB
 ```
 
-
-
-# 集成PageHelper
-
-1. 依赖
-
-   ```xml
-         <dependency>
-               <groupId>com.github.pagehelper</groupId>
-               <artifactId>pagehelper-spring-boot-starter</artifactId>
-               <version>${pagehelper.version}</version>
-           </dependency>	
-   ```
-
-## 集成PageHelper问题
-
-1. 无法在PageHelper自带的mybatis拦截器前添加新的拦截器
-
-   取消PageHelper的自动装配,自定义PageHelperConfiguration,在PageInterceptor前添加自定义的拦截器
-
-   ```java
-   /**
-    * @author fool
-    * @date 2022/1/12 16:04
-    */
-   @Configuration
-   @ConditionalOnClass(SqlSessionFactory.class)
-   @EnableConfigurationProperties(PageHelperProperties.class)
-   @AutoConfigureAfter(MybatisAutoConfiguration.class)
-   public class PageHelperConfiguration implements InitializingBean {
-       private final List<SqlSessionFactory> sqlSessionFactoryList;
-   
-       private final PageHelperProperties properties;
-   
-       public PageHelperConfiguration(List<SqlSessionFactory> sqlSessionFactoryList, PageHelperProperties properties) {
-           this.sqlSessionFactoryList = sqlSessionFactoryList;
-           this.properties = properties;
-       }
-   
-       @Override
-       public void afterPropertiesSet() throws Exception {
-        	// PageHelper自带的拦截器   
-           PageInterceptor pageInterceptor = new PageInterceptor();
-           // d
-           MybatisInterceptor mybatisInterceptor = new MybatisInterceptor();
-           pageInterceptor.setProperties(this.properties);
-           for (SqlSessionFactory sqlSessionFactory : sqlSessionFactoryList) {
-               org.apache.ibatis.session.Configuration configuration = sqlSessionFactory.getConfiguration();
-               if (!containsInterceptor(configuration, pageInterceptor)) {
-                   configuration.addInterceptor(pageInterceptor);
-               }
-               if (!containsInterceptor(configuration, mybatisInterceptor)) {
-                   configuration.addInterceptor(mybatisInterceptor);
-               }
-           }
-       }
-   
-       /**
-        * 是否已经存在相同的拦截器
-        *
-        * @param configuration
-        * @param interceptor
-        * @return
-        */
-       private boolean containsInterceptor(org.apache.ibatis.session.Configuration configuration, Interceptor interceptor) {
-           try {
-               // getInterceptors since 3.2.2
-               return configuration.getInterceptors().contains(interceptor);
-           } catch (Exception e) {
-               return false;
-           }
-       }
-   
-   }
-   
-   ```
-
-   
-
 # 自动装配原理
 
 https://www.cnblogs.com/javaguide/p/springboot-auto-config.html
@@ -862,9 +783,477 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
 ```
 
-# 集成FlyWay
+# 集成
 
-## maven pom.xml
+## 集成RabbitMQ
+
+依赖
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-amqp</artifactId>
+</dependency>
+```
+
+### Work模式
+
+#### 生产者代码
+
+配置
+
+```java
+
+@Configuration
+public class RabbitMQConfig {
+
+    public static final String DATA_QUEUE = "data-queue";
+
+	/**
+	 * 定义队列
+	 **/
+    @Bean(DATA_QUEUE)
+    public Queue dataQueue() {
+        return new Queue(DATA_QUEUE);
+    }
+
+
+    @Bean
+    @Primary
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+        RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
+        rabbitTemplate.setMessageConverter(new Jackson2JsonMessageConverter());
+        return rabbitTemplate;
+    }
+
+    /**
+     * 因配置文件因不明原因无法生效,所以在此手动配置
+     *
+     * @param addresses   rabbit mq ip地址
+     * @param port        rabbit mq 端口号
+     * @param username    账号
+     * @param password    密码
+     * @param virtualHost 虚拟host
+     * @return 连接工厂
+     */
+    @Bean(name = "ConnectionFactory")
+    public ConnectionFactory ConnectionFactory(
+            @Value("${spring.rabbitmq.addresses}") String addresses,
+            @Value("${spring.rabbitmq.port}") int port,
+            @Value("${spring.rabbitmq.username}") String username,
+            @Value("${spring.rabbitmq.password}") String password,
+            @Value("${spring.rabbitmq.virtual-host}") String virtualHost) {
+        CachingConnectionFactory connectionFactory = new CachingConnectionFactory(addresses, port);
+        connectionFactory.setUsername(username);
+        connectionFactory.setPassword(password);
+        connectionFactory.setVirtualHost(virtualHost);
+        return connectionFactory;
+    }
+```
+
+发送消息
+
+```java
+
+@Service
+public class RabbitMQService {
+    private final RabbitTemplate rabbitTemplate;
+
+    public RabbitMQService(@Qualifier("rabbitTemplate") RabbitTemplate rabbitTemplate) {
+        this.rabbitTemplate = rabbitTemplate;
+    }
+
+    public void placeOrder(Order order) {
+        // 此处发送消息,使用的队列名称
+        rabbitTemplate.convertAndSend(RabbitMQConfig.DATA_QUEUE, order);
+    }
+}
+
+```
+
+#### 消费者代码
+
+配置
+
+```java
+
+@Configuration
+public class RabbitMQConfig {
+
+    public static final String DATA_QUEUE = "data-queue";
+
+    @Bean(DATA_QUEUE)
+    public Queue dataQueue() {
+        return new Queue(DATA_QUEUE);
+    }
+
+    @Bean(name = "ConnectionFactory")
+    public ConnectionFactory ConnectionFactory(
+            @Value("${spring.rabbitmq.addresses}") String addresses,
+            @Value("${spring.rabbitmq.port}") int port,
+            @Value("${spring.rabbitmq.username}") String username,
+            @Value("${spring.rabbitmq.password}") String password,
+            @Value("${spring.rabbitmq.virtual-host}") String virtualHost) {
+        CachingConnectionFactory connectionFactory = new CachingConnectionFactory(addresses, port);
+        connectionFactory.setUsername(username);
+        connectionFactory.setPassword(password);
+        connectionFactory.setVirtualHost(virtualHost);
+        return connectionFactory;
+    }
+
+    /**
+     * 用于配置消息自动确认
+     *
+     * @param connectionFactory 包含ip.port,username,password信息的连接工厂
+     * @return 仍旧是一个连接工厂,
+     */
+    @Bean
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(@Qualifier("ConnectionFactory") ConnectionFactory connectionFactory) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+        factory.setConnectionFactory(connectionFactory);
+        return factory;
+    }
+
+}
+
+```
+
+接收代码
+
+由spring控制的类中,在方法上添加``@RabbitListener``就可以接受到对应队列的消息
+
+在手动确认机制下,需要通过``Channel``来确认消息是否被消费成功
+
+```java
+
+@Component
+@Slf4j
+public class RabbitMQListener {
+
+    private final OrderService orderService;
+
+    public RabbitMQListener(OrderService orderService) {
+        this.orderService = orderService;
+    }
+
+    @RabbitListener(queues = RabbitMQConfig.DATA_QUEUE)
+    public void receiverOrder(String msg, Channel channel, Message message) throws IOException {
+        log.info("receive msg:{}", msg);
+        commonHandler(msg, channel, message);
+    }
+
+    public void commonHandler(String msg, Channel channel, Message message) throws IOException {
+        long deliveryTag = message.getMessageProperties().getDeliveryTag();
+        try {
+            Order order = JSONObject.parseObject(msg).toJavaObject(Order.class);
+            orderService.add(order);
+            // 第二个参数代表的是是否批量确认消费,即将deliveryTag小于当前deliveryTag的消息全部确认消费掉
+            channel.basicAck(deliveryTag, false);
+        } catch (Exception e) {
+            log.error("消费失败", e);
+            // 第二参数代表的是是否重新入队
+            channel.basicReject(deliveryTag, true);
+        }
+    }
+}
+
+```
+
+### Fanout模式(发布订阅模式)
+
+#### 生产者代码
+
+配置
+
+相比于Work模式,多了交换机角色,以及绑定交换机和队列的步骤
+
+> 此处注意,BindingBuilder.bind(queue).to(exchange),如果是Fanout模式,exchange必须是FanoutExchange,否则会变成配置Topic模式
+
+```java
+
+@Configuration
+public class RabbitMQConfig {
+
+    public static final String FANOUT_QUEUE_ONE = "fanout-queue-1";
+
+    public static final String FANOUT_QUEUE_TWO = "fanout-queue-2";
+
+    public static final String FANOUT_EXCHANGE = "fanout-exchange";
+
+    @Bean(FANOUT_QUEUE_ONE)
+    public Queue fanoutQueueOne() {
+        return new Queue(FANOUT_QUEUE_ONE);
+    }
+
+    @Bean(FANOUT_QUEUE_TWO)
+    public Queue fanoutQueueTwo() {
+        return new Queue(FANOUT_QUEUE_TWO);
+    }
+
+    @Bean(FANOUT_EXCHANGE)
+    public FanoutExchange exchange() {
+        return new FanoutExchange(FANOUT_EXCHANGE);
+    }
+
+    @Bean
+    public Binding binding1(@Qualifier(FANOUT_QUEUE_ONE) Queue queue, @Qualifier(FANOUT_EXCHANGE) FanoutExchange fanoutExchange) {
+        return BindingBuilder.bind(queue).to(fanoutExchange);
+    }
+
+    @Bean
+    Binding binding2(@Qualifier(FANOUT_QUEUE_TWO) Queue queue, @Qualifier(FANOUT_EXCHANGE) FanoutExchange fanoutExchange) {
+        return BindingBuilder.bind(queue).to(fanoutExchange);
+    }
+
+
+    @Bean
+    @Primary
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+        RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
+        rabbitTemplate.setMessageConverter(new Jackson2JsonMessageConverter());
+        return rabbitTemplate;
+    }
+
+    /**
+     * 因配置文件因不明原因无法生效,所以在此手动配置
+     *
+     * @param addresses   rabbit mq ip地址
+     * @param port        rabbit mq 端口号
+     * @param username    账号
+     * @param password    密码
+     * @param virtualHost 虚拟host
+     * @return 连接工厂
+     */
+    @Bean(name = "ConnectionFactory")
+    public ConnectionFactory ConnectionFactory(
+            @Value("${spring.rabbitmq.addresses}") String addresses,
+            @Value("${spring.rabbitmq.port}") int port,
+            @Value("${spring.rabbitmq.username}") String username,
+            @Value("${spring.rabbitmq.password}") String password,
+            @Value("${spring.rabbitmq.virtual-host}") String virtualHost) {
+        CachingConnectionFactory connectionFactory = new CachingConnectionFactory(addresses, port);
+        connectionFactory.setUsername(username);
+        connectionFactory.setPassword(password);
+        connectionFactory.setVirtualHost(virtualHost);
+        return connectionFactory;
+    }
+
+}
+
+```
+
+发送消息
+
+```java
+@Service
+public class RabbitMQService {
+
+
+    private final RabbitTemplate rabbitTemplate;
+
+    public RabbitMQService(@Qualifier("rabbitTemplate") RabbitTemplate rabbitTemplate) {
+        this.rabbitTemplate = rabbitTemplate;
+    }
+
+    public void placeOrder(Order order) {
+        rabbitTemplate.convertAndSend(RabbitMQConfig.DATA_QUEUE, order);
+    }
+
+
+    public void fanoutModeTest(Order order) {
+        // 此处发送消息,需要填写exchange名称,以及路由key(route key),因为是fanout模式,所以是空字符串即可
+        rabbitTemplate.convertAndSend(RabbitMQConfig.FANOUT_EXCHANGE, "", order);
+    }
+
+}
+```
+
+#### 消费者代码
+
+消息消费的具体代码与Work模式无差别,都是需要消费哪个队列,进行实例化以及``@RabbitListener``中queues参数的配置
+
+配置
+
+在消费者端只要添加需要消费的队列名称即可
+
+```java
+@Configuration
+public class RabbitMQConfig {
+
+    public static final String FANOUT_QUEUE_ONE = "fanout-queue-1";
+
+    public static final String FANOUT_QUEUE_TWO = "fanout-queue-2";
+
+
+    @Bean(FANOUT_QUEUE_ONE)
+    public Queue fanoutQueueOne() {
+        return new Queue(FANOUT_QUEUE_ONE);
+    }
+
+    @Bean(FANOUT_QUEUE_TWO)
+    public Queue fanoutQueueTwo() {
+        return new Queue(FANOUT_QUEUE_TWO);
+    }
+
+
+    @Bean(name = "ConnectionFactory")
+    public ConnectionFactory ConnectionFactory(
+            @Value("${spring.rabbitmq.addresses}") String addresses,
+            @Value("${spring.rabbitmq.port}") int port,
+            @Value("${spring.rabbitmq.username}") String username,
+            @Value("${spring.rabbitmq.password}") String password,
+            @Value("${spring.rabbitmq.virtual-host}") String virtualHost) {
+        CachingConnectionFactory connectionFactory = new CachingConnectionFactory(addresses, port);
+        connectionFactory.setUsername(username);
+        connectionFactory.setPassword(password);
+        connectionFactory.setVirtualHost(virtualHost);
+        return connectionFactory;
+    }
+
+    /**
+     * 用于配置消息自动确认
+     *
+     * @param connectionFactory 包含ip.port,username,password信息的连接工厂
+     * @return 仍旧是一个连接工厂,
+     */
+    @Bean
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(@Qualifier("ConnectionFactory") ConnectionFactory connectionFactory) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+        factory.setConnectionFactory(connectionFactory);
+        return factory;
+    }
+
+}
+```
+
+接收消息代码
+
+```java
+@Component
+@Slf4j
+public class RabbitMQListener {
+
+    private final OrderService orderService;
+
+    public RabbitMQListener(OrderService orderService) {
+        this.orderService = orderService;
+    }
+
+    @RabbitListener(queues = RabbitMQConfig.FANOUT_QUEUE_ONE)
+    public void fanoutTest1(String msg, Channel channel, Message message) throws IOException {
+        log.info("fanout test 1. receive msg:{}", msg);
+        commonHandler(msg, channel, message);
+    }
+
+    @RabbitListener(queues = RabbitMQConfig.FANOUT_QUEUE_TWO)
+    public void fanoutTest2(String msg, Channel channel, Message message) throws IOException {
+        log.info("fanout test 2. receive msg:{}", msg);
+        commonHandler(msg, channel, message);
+    }
+
+    public void commonHandler(String msg, Channel channel, Message message) throws IOException {
+        long deliveryTag = message.getMessageProperties().getDeliveryTag();
+        try {
+            Order order = JSONObject.parseObject(msg).toJavaObject(Order.class);
+            orderService.add(order);
+            // 第二个参数代表的是是否批量确认消费,即将deliveryTag小于当前deliveryTag的消息全部确认消费掉
+            channel.basicAck(deliveryTag, false);
+        } catch (Exception e) {
+            log.error("消费失败", e);
+            // 第二参数代表的是是否重新入队
+            channel.basicReject(deliveryTag, true);
+        }
+    }
+}
+```
+
+### Topic模式
+
+#### 生产者代码
+
+#### 消费者代码
+
+## 集成PageHelper
+
+1. 依赖
+
+   ```xml
+         <dependency>
+               <groupId>com.github.pagehelper</groupId>
+               <artifactId>pagehelper-spring-boot-starter</artifactId>
+               <version>${pagehelper.version}</version>
+           </dependency>	
+   ```
+
+### 集成PageHelper问题
+
+1. 无法在PageHelper自带的mybatis拦截器前添加新的拦截器
+
+   取消PageHelper的自动装配,自定义PageHelperConfiguration,在PageInterceptor前添加自定义的拦截器
+
+   ```java
+   /**
+    * @author fool
+    * @date 2022/1/12 16:04
+    */
+   @Configuration
+   @ConditionalOnClass(SqlSessionFactory.class)
+   @EnableConfigurationProperties(PageHelperProperties.class)
+   @AutoConfigureAfter(MybatisAutoConfiguration.class)
+   public class PageHelperConfiguration implements InitializingBean {
+       private final List<SqlSessionFactory> sqlSessionFactoryList;
+   
+       private final PageHelperProperties properties;
+   
+       public PageHelperConfiguration(List<SqlSessionFactory> sqlSessionFactoryList, PageHelperProperties properties) {
+           this.sqlSessionFactoryList = sqlSessionFactoryList;
+           this.properties = properties;
+       }
+   
+       @Override
+       public void afterPropertiesSet() throws Exception {
+        	// PageHelper自带的拦截器   
+           PageInterceptor pageInterceptor = new PageInterceptor();
+           // d
+           MybatisInterceptor mybatisInterceptor = new MybatisInterceptor();
+           pageInterceptor.setProperties(this.properties);
+           for (SqlSessionFactory sqlSessionFactory : sqlSessionFactoryList) {
+               org.apache.ibatis.session.Configuration configuration = sqlSessionFactory.getConfiguration();
+               if (!containsInterceptor(configuration, pageInterceptor)) {
+                   configuration.addInterceptor(pageInterceptor);
+               }
+               if (!containsInterceptor(configuration, mybatisInterceptor)) {
+                   configuration.addInterceptor(mybatisInterceptor);
+               }
+           }
+       }
+   
+       /**
+        * 是否已经存在相同的拦截器
+        *
+        * @param configuration
+        * @param interceptor
+        * @return
+        */
+       private boolean containsInterceptor(org.apache.ibatis.session.Configuration configuration, Interceptor interceptor) {
+           try {
+               // getInterceptors since 3.2.2
+               return configuration.getInterceptors().contains(interceptor);
+           } catch (Exception e) {
+               return false;
+           }
+       }
+   
+   }
+   
+   ```
+
+
+## 集成FlyWay
+
+### maven pom.xml
 
 ```xml
 <!--....-->
@@ -890,13 +1279,13 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 </plugin>
 ```
 
-## sql文件命名格式
+### sql文件命名格式
 
 V[version]__[name].sql
 
-# 集成Swagger
+## 集成Swagger
 
-## 配置
+### 配置
 
 ```java
 
@@ -938,12 +1327,12 @@ public class SwaggerConfig {
 }
 ```
 
-## 集成Swagger中的坑
+### 集成Swagger中的坑
 
 * 在2.9.2 版本中使用@ApiParam(defaultValue = "1") 会报错,这是版本Bug
 * 如果配置了统一返回结果而设置了spring.resources.add-mappings=false,swagger-ui/index.html会访问不到,可以在配置统一返回结果的地方将@ControllerAdvice改成@RestControllerAdvice(basePackages="project packages")
 
-# 集成Solr
+## 集成Solr
 
 依赖
 
@@ -955,19 +1344,19 @@ public class SwaggerConfig {
 </dependency>
 ```
 
-# 集成WebSocket
+## 集成WebSocket
 
-## 坑
+### 坑
 
 * Junit单元测试时,需在@SpringbootTest注解中添加webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT参数
   
   > @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 
-# 整合Redis
+## 集成Redis
 
-## RedisTemplate
+### RedisTemplate
 
-### 创建文件夹
+#### 创建文件夹
 
 文件下以数组形式存储,双冒号分割
 
@@ -983,7 +1372,7 @@ redisTemplate.opsForValue().set("dir::key","value");
 redisTemplate.opsForValue().set("dir:key","value");
 ```
 
-## Redis广播
+### Redis广播
 
 > 可用于微服务下的websocket
 
@@ -1040,7 +1429,7 @@ public class RedisRadioMessageListener implements MessageListener {
 }
 ```
 
-## 监听缓存失效
+### 监听缓存失效
 
 redis配置文件将notify-keyspace-events "" 改为 notify-keyspace-events Ex
 
@@ -1085,7 +1474,7 @@ public class RedisConfig extends CachingConfigurerSupport {
 }
 ```
 
-## 添加自定义注解实现注解定义失效时间
+### 添加自定义注解实现注解定义失效时间
 
 > 代码:[GitHub](https://github.com/stq957023588/RedisPlus)
 
