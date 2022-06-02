@@ -1173,7 +1173,258 @@ public class RabbitMQListener {
 
 #### 生产者代码
 
+配置
+
+相比于Fanout模式(订阅/发布模式),topic多了一个路由(route key),需要在绑定时添加上route key
+
+> 路由中 * 代表的是一个单词, # 代表 0个,1个或多个单词,是单词,非字母,使用点代表单词间的分隔
+>
+> eg. route key: **fool.***  , fool.one 、fool.two 会路由到此路由当中, fool , fool.one.two 则不会被路由过来
+>
+>  route key:**fool.#** , fool 、fool.one 、fool.one.two 都会路由过来
+
+```java
+@Configuration
+public class RabbitMQConfig {
+
+    public static final String TOPIC_QUEUE_ASTERISK = "topic.asterisk";
+
+    public static final String TOPIC_QUEUE_WELL = "topic.well";
+
+    public static final String TOPIC_EXCHANGE = "topic.exchange";
+
+    public static final String ROUTE_KEY_FOOL_ASTERISK = "fool.*";
+
+    public static final String ROUTE_KEY_FOOL_WELL = "fool.#";
+
+    @Bean(TOPIC_QUEUE_ASTERISK)
+    public Queue topicQueueAsterisk() {
+        return new Queue(TOPIC_QUEUE_ASTERISK);
+    }
+
+    @Bean(TOPIC_QUEUE_WELL)
+    public Queue topicQueueWell() {
+        return new Queue(TOPIC_QUEUE_WELL);
+    }
+
+    @Bean(TOPIC_EXCHANGE)
+    public TopicExchange topicExchange() {
+        return new TopicExchange(TOPIC_EXCHANGE);
+    }
+
+    /**
+     * topic 模式, 星号路由
+     *
+     * @param queue         队列
+     * @param topicExchange 交换机
+     * @return 绑定关系
+     */
+    @Bean
+    public Binding topicBindingAsterisk(@Qualifier(TOPIC_QUEUE_ASTERISK) Queue queue, @Qualifier(TOPIC_EXCHANGE) TopicExchange topicExchange) {
+        return BindingBuilder.bind(queue).to(topicExchange).with(ROUTE_KEY_FOOL_ASTERISK);
+    }
+
+    /**
+     * topic 模式, 井号路由
+     *
+     * @param queue         队列
+     * @param topicExchange 交换机
+     * @return 绑定关系
+     */
+    @Bean
+    Binding topicBindingWell(@Qualifier(TOPIC_QUEUE_WELL) Queue queue, @Qualifier(TOPIC_EXCHANGE) TopicExchange topicExchange) {
+        return BindingBuilder.bind(queue).to(topicExchange).with(ROUTE_KEY_FOOL_WELL);
+    }
+
+
+    @Bean
+    @Primary
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+        RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
+        rabbitTemplate.setMessageConverter(new Jackson2JsonMessageConverter());
+        return rabbitTemplate;
+    }
+
+    /**
+     * 因配置文件因不明原因无法生效,所以在此手动配置
+     *
+     * @param addresses   rabbit mq ip地址
+     * @param port        rabbit mq 端口号
+     * @param username    账号
+     * @param password    密码
+     * @param virtualHost 虚拟host
+     * @return 连接工厂
+     */
+    @Bean(name = "ConnectionFactory")
+    public ConnectionFactory ConnectionFactory(
+            @Value("${spring.rabbitmq.addresses}") String addresses,
+            @Value("${spring.rabbitmq.port}") int port,
+            @Value("${spring.rabbitmq.username}") String username,
+            @Value("${spring.rabbitmq.password}") String password,
+            @Value("${spring.rabbitmq.virtual-host}") String virtualHost) {
+        CachingConnectionFactory connectionFactory = new CachingConnectionFactory(addresses, port);
+        connectionFactory.setUsername(username);
+        connectionFactory.setPassword(password);
+        connectionFactory.setVirtualHost(virtualHost);
+        return connectionFactory;
+    }
+
+}
+```
+
+发送消息
+
+```java
+@Service
+public class RabbitMQService {
+
+    private final RabbitTemplate rabbitTemplate;
+
+    public RabbitMQService(@Qualifier("rabbitTemplate") RabbitTemplate rabbitTemplate) {
+        this.rabbitTemplate = rabbitTemplate;
+    }
+
+    public void topicModeTest(){
+        rabbitTemplate.convertAndSend(RabbitMQConfig.TOPIC_EXCHANGE,"fool.asterisk","single word test");
+        rabbitTemplate.convertAndSend(RabbitMQConfig.TOPIC_EXCHANGE,"fool","none word test");
+        rabbitTemplate.convertAndSend(RabbitMQConfig.TOPIC_EXCHANGE,"fool.well.test","multipart word test");
+    }
+
+}
+```
+
 #### 消费者代码
+
+消息消费的具体代码与其他模式,都是需要消费哪个队列,进行实例化以及``@RabbitListener``中queues参数的配置
+
+配置,消费者配置与其他模式一致
+
+```java
+@Configuration
+public class RabbitMQConfig {
+
+    public static final String TOPIC_QUEUE_ASTERISK = "topic.asterisk";
+
+    public static final String TOPIC_QUEUE_WELL = "topic.well";
+
+
+    @Bean(TOPIC_QUEUE_ASTERISK)
+    public Queue topicQueueAsterisk() {
+        return new Queue(TOPIC_QUEUE_ASTERISK);
+    }
+
+    @Bean(TOPIC_QUEUE_WELL)
+    public Queue topicQueueWell() {
+        return new Queue(TOPIC_QUEUE_WELL);
+    }
+
+
+    @Bean(name = "ConnectionFactory")
+    public ConnectionFactory ConnectionFactory(
+            @Value("${spring.rabbitmq.addresses}") String addresses,
+            @Value("${spring.rabbitmq.port}") int port,
+            @Value("${spring.rabbitmq.username}") String username,
+            @Value("${spring.rabbitmq.password}") String password,
+            @Value("${spring.rabbitmq.virtual-host}") String virtualHost) {
+        CachingConnectionFactory connectionFactory = new CachingConnectionFactory(addresses, port);
+        connectionFactory.setUsername(username);
+        connectionFactory.setPassword(password);
+        connectionFactory.setVirtualHost(virtualHost);
+        return connectionFactory;
+    }
+
+    /**
+     * 用于配置消息自动确认
+     *
+     * @param connectionFactory 包含ip.port,username,password信息的连接工厂
+     * @return 仍旧是一个连接工厂,
+     */
+    @Bean
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(@Qualifier("ConnectionFactory") ConnectionFactory connectionFactory) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+        factory.setConnectionFactory(connectionFactory);
+        return factory;
+    }
+```
+
+接收消息
+
+```java
+@Component
+@Slf4j
+public class RabbitMQListener {
+
+    @RabbitListener(queues = RabbitMQConfig.TOPIC_QUEUE_ASTERISK)
+    public void topicAsterisk(String msg, Channel channel, Message message) throws IOException {
+        long deliveryTag = message.getMessageProperties().getDeliveryTag();
+        try {
+            log.info("topic asterisk test:{}", msg);
+            channel.basicAck(deliveryTag, false);
+        } catch (Exception e) {
+            log.error("消费失败", e);
+            channel.basicReject(deliveryTag, true);
+        }
+    }
+
+
+    @RabbitListener(queues = RabbitMQConfig.TOPIC_QUEUE_WELL)
+    public void topicWell(String msg, Channel channel, Message message) throws IOException {
+        long deliveryTag = message.getMessageProperties().getDeliveryTag();
+        try {
+            log.info("topic well test:{}", msg);
+            channel.basicAck(deliveryTag, false);
+        } catch (Exception e) {
+            log.error("消费失败", e);
+            channel.basicReject(deliveryTag, true);
+        }
+    }
+
+}
+```
+
+### 生成者消息送达确认机制
+
+消息队列的消息丢失,是通过消息队列的消息确认机制来实现,通过保证消息产生顺利到达消息队列,以及消息队列内部存储的不丢失,以及最后成功的送达到消费者
+
+#### 生产者消息确认
+
+生产者的消息确认,是确认消息成功到达消息队列,生产者会有一个异步的回调函数
+
+> 此处其他代码参照Work模式的代码
+
+```java
+@Slf4j
+@Service
+public class RabbitMQService {
+
+    private final RabbitTemplate rabbitTemplate;
+
+    public RabbitMQService(@Qualifier("rabbitTemplate") RabbitTemplate rabbitTemplate) {
+        this.rabbitTemplate = rabbitTemplate;
+    }
+
+    public void placeOrderWithAckConfirm(Order order) {
+        RabbitTemplate.ConfirmCallback confirmCallback = (correlationData, b, s) -> {
+            String id = Optional.ofNullable(correlationData).map(CorrelationData::getId).orElse("");
+            if (b) {
+                log.info("Confirm success! id:{}", id);
+            } else {
+                log.error("Confirm error! id:{}\tcause:{}", id, s);
+            }
+        };
+        // 发送时带上全局唯一ID,次数用毫秒数代替
+        rabbitTemplate.convertAndSend(RabbitMQConfig.DATA_QUEUE, order, new CorrelationData(System.currentTimeMillis() + ""));
+        rabbitTemplate.setConfirmCallback(confirmCallback);
+    }
+}
+```
+
+#### 消费者消息确认
+
+消费者端的消息确认在3个模式的代码中以体现,通过Channel的basicAck来进行消息的确认以及拒绝
+
+
 
 ## 集成PageHelper
 
