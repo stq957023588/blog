@@ -225,15 +225,13 @@ public void testCreateIndex() {
 public void testCreateDocument() {
     try {
         Student student = new Student();
-        elasticsearchClient.create(new CreateRequest.Builder<EncodeFile>().index("test_index").id(").document(student).build());
+        elasticsearchClient.create(new CreateRequest.Builder<EncodeFile>().index("test_index").id("1").document(student).build());
 
     } catch (IOException e) {
         e.printStackTrace();
     }
 }
 ```
-
-
 
 索引文件
 
@@ -261,6 +259,49 @@ public void testCreateDocument() {
     }
 }
 ```
+
+查询文档
+
+```java
+public void testSearch() {
+    try {
+        SearchResponse<EncodeFile> search = elasticsearchClient.search(
+                e -> e.index("test_index")
+                        .source(new SourceConfig.Builder().fetch(false).build())
+                        .fields(Stream.of(new FieldAndFormat.Builder().field("attachment.content").build()).collect(Collectors.toList()))
+                        .query(q -> q.intervals(
+                                i -> i.field("attachment.content").allOf(a -> a.intervals(i2 -> i2.match(m2 -> m2.query("第一次").analyzer("ik_smarter"))))
+                        ))
+                , EncodeFile.class);
+        List<Hit<EncodeFile>> hits = search.hits().hits();
+        hits.forEach(hit -> System.out.println(hit.fields()));
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+```
+
+以上查询等价于一下查询
+
+```json
+GET test_index/_search
+{
+  "_source": false,
+  "fields": [
+    "attachment.content"
+  ], 
+  "query": {
+    "match": {
+      "attachment.content": {
+        "query": "第一次",
+        "analyzer": "ik_smart"
+      }
+    }
+  }
+}
+```
+
+
 
 ## 问题
 
