@@ -1,5 +1,9 @@
 # Tomcat
 
+## Docker启动
+
+> 在tomcat9.0以上,webapps为空文件夹,需要删除webapps文件夹,然后重命名webapps.bak文件夹为webapps
+
 ## 自定义JAVA_HOME
 在startup.bat文件的第二行添加 set JAVA_HOME=jdk地址
 

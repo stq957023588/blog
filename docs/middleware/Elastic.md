@@ -1,5 +1,7 @@
 # Elasticsearch
 
+> 该文档适用于8.0.0版本
+
 ## 启动
 
 ### Docker启动
@@ -10,6 +12,48 @@ docker run --name es01 --net elastic -p 9201:9200 -p 9301:9300 -e "discovery.typ
 
 第一次启动会生成证书,账号密码,以及用于Kibana的token,记得保存
 
+此处启动命令如果带上-it 则会打印账号密码以及token,
+
+### 集群
+
+在第一个节点中运行``elasticsearch-create-enrollment-token``生成token
+
+启动第二个节点
+
+```sh
+docker run -e ENROLLMENT_TOKEN="<token>" --name es02 --net elastic -it docker.elastic.co/elasticsearch/elasticsearch:8.0.0
+```
+
+如果在启动第二个节点时,第一个节点容器自动关闭,则在需要修改所有节点的JVM heap大小
+
+启动设置
+
+```sh
+docker run -e ES_JAVA_OPTS="-Xms1g -Xmx1g" -e ENROLLMENT_TOKEN="<token>" --name es02 -p 9201:9200 --net elastic -it docker.elastic.co/elasticsearch/elasticsearch:8.0.1
+```
+
+## bin目录下的命令
+
+重置密码
+
+```shell
+elasticsearch-reset-password -u elastic
+```
+
+获取kibana使用的token
+
+```shell
+elasticsearch-create-enrollment-token -s kibana --url "https://127.0.0.1:9200"
+```
+
+获取用于集群的token
+
+```shell
+elasticsearch-create-enrollment-token -s node --url "https://127.0.0.1:9200"
+```
+
+
+
 ## 证书(crt)
 
 elasticsearch8.0.0,自动生成证书,用于Logstash传输数据到Elasticsearch
@@ -18,7 +62,205 @@ elasticsearch8.0.0,自动生成证书,用于Logstash传输数据到Elasticsearch
 docker cp [容器名称]:/usr/share/elasticsearch/config/certs/http_ca.crt [本机地址(文件夹)]
 ```
 
+## 中文分词
 
+使用IK,[下载地址](https://github.com/medcl/elasticsearch-analysis-ik)
+
+## RESTful API
+
+查看所有索引
+
+```
+GET /_cat/indices
+```
+
+
+
+添加文档
+
+```
+POST /<索引名称>/_doc
+{
+
+}
+```
+
+## 对PDF等文件进行索引
+
+添加中文分词器(IK)
+
+安装插件
+
+```shell
+bin/elasticsearch-plugin install ingest-attachment
+```
+
+创建管道
+
+```shell
+curl -XPUT 'ES_HOST:ES_PORT/_ingest/pipeline/attachment?pretty' -H 'Content-Type: application/json' -d '{
+ "description" : "Extract attachment information encoded in Base64 with UTF-8 charset",
+ "processors" : [
+   {
+     "attachment" : {
+       "field" : "data"
+     }
+   }
+ ]
+}'
+```
+
+添加文档
+
+```shell
+curl -XPUT 'ES_HOST:ES_PORT/test_index/_doc?pipeline=attachment&pretty' -H 'Content-Type: application/json' -d '{
+ "data": "UWJveCBlbmFibGVzIGxhdW5jaGluZyBzdXBwb3J0ZWQsIGZ1bGx5LW1hbmFnZWQsIFJFU1RmdWwgRWxhc3RpY3NlYXJjaCBTZXJ2aWNlIGluc3RhbnRseS4g"
+}'
+```
+
+查询文档
+
+```
+GET /test_index/_search
+{
+  "_source": false,
+  "fields": [
+    "attachment.content"
+  ], 
+  "query": {
+    "match": {
+      "attachment.content": {
+        "query": "第一次",
+        "analyzer": "ik_smart"
+      }
+    }
+  },
+  "highlight": {
+    "fields": {
+      "attachment.content": {
+        "pre_tags": "<em>",
+        "post_tags": "</em>"
+      }
+    }
+  }
+}
+```
+
+## Elasticsearch-Java
+
+依赖
+
+```xml
+<dependency>
+    <groupId>co.elastic.clients</groupId>
+    <artifactId>elasticsearch-java</artifactId>
+    <version>8.0.0</version>
+    <exclusions>
+        <exclusion>
+            <groupId>jakarta.json</groupId>
+            <artifactId>jakarta.json-api</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
+
+<dependency>
+    <groupId>jakarta.json</groupId>
+    <artifactId>jakarta.json-api</artifactId>
+    <version>2.0.1</version>
+</dependency>
+```
+
+> 在springboot使用必须指定jakarta.json-api的版本,因为springboot本身也是用了jakarta.json-api,但版本是1.x,会导致冲突
+
+客户端创建
+
+```java
+public ElasticsearchClient elasticsearchClient() throws Exception {
+    // 读取TSL证书
+    Path caCertificatePath = Paths.get("http_ca.crt");
+    CertificateFactory factory = CertificateFactory.getInstance("X.509");
+    Certificate trustedCa;
+    try (InputStream is = Files.newInputStream(caCertificatePath)) {
+        trustedCa = factory.generateCertificate(is);
+    }
+    KeyStore trustStore = KeyStore.getInstance("pkcs12");
+    trustStore.load(null, null);
+    trustStore.setCertificateEntry("ca", trustedCa);
+    SSLContextBuilder sslContextBuilder = SSLContexts.custom().loadTrustMaterial(trustStore, null);
+    final SSLContext sslContext = sslContextBuilder.build();
+
+    // 设置账号密码
+    final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+    credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials("elastic", "gJrWUCkuY=Mk3z_jH7rE"));
+
+    // 设置请求客户端
+    RestClient restClient = RestClient.builder(new HttpHost("localhost", 9201, "https"))
+            .setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setSSLContext(sslContext).setDefaultCredentialsProvider(credentialsProvider))
+            .build();
+
+    // 使用Jackson映射器创建传输层
+    ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
+    // 创建API客户端
+    return new ElasticsearchClient(transport);
+}
+```
+
+创建一个名称为``springboot``的索引
+
+```java
+public void testCreateIndex() {
+    try {
+        CreateIndexResponse createIndexResponse = elasticsearchClient.indices().create(c -> c.index("springboot"));
+        Boolean acknowledged = createIndexResponse.acknowledged();
+        System.out.println("create index result:" + acknowledged);
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+```
+
+添加普通文档
+
+```java
+public void testCreateDocument() {
+    try {
+        Student student = new Student();
+        elasticsearchClient.create(new CreateRequest.Builder<EncodeFile>().index("test_index").id(").document(student).build());
+
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+```
+
+
+
+索引文件
+
+```java
+public void testCreateDocument() {
+    try {
+        File dir = new File("E:\\temporary\\elasticsearch-document");
+        File[] files = dir.listFiles();
+        Base64.Encoder encoder = Base64.getEncoder();
+        assert files != null;
+        int i = 0;
+        for (File f : files) {
+            byte[] bytes = FileUtils.readFileToByteArray(f);
+            String encode = encoder.encodeToString(bytes);
+            EncodeFile encodeFile = new EncodeFile();
+            encodeFile.setFilename(f.getName());
+            encodeFile.setData(encode);
+
+            elasticsearchClient.create(new CreateRequest.Builder<EncodeFile>().pipeline("attachment").index("test_index").id(i + "").document(encodeFile).build());
+            i++;
+        }
+
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+```
 
 ## 问题
 
@@ -31,7 +273,7 @@ docker cp [容器名称]:/usr/share/elasticsearch/config/certs/http_ca.crt [本�
 ### Docker启动
 
 ```shell
-docker run --name kib01 --net elastic -p 5602:5601 docker.elastic.co/kibana/kibana:7.17.0
+docker run -d --name kiba --net elastic -p 5602:5601 docker.elastic.co/kibana/kibana:8.0.0
 ```
 
 PS: 如果不是8.0.0版本,需要加上参数 -e "ELASTICSEARCH_HOSTS=http://es01:9200" ,用于告诉Kibana Elasticsearch的地址,8.0.0版本使用token告诉Kibana,不需要在启动时添加参数

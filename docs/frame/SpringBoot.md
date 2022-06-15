@@ -785,6 +785,8 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
 # 集成
 
+
+
 ## 集成RabbitMQ
 
 依赖
@@ -1382,6 +1384,222 @@ public class RabbitMQListener {
 
 }
 ```
+
+### 死信队列
+
+死信队列是存储其他队列丢弃或者超时数据的队列,业务队列通过设置超时时间以及死信交换机来将过期以及被拒绝的消息存入到死信队列中
+
+配置
+
+```java
+@Configuration
+public class RabbitMQConfig {
+    public static final String DIRECT_EXCHANGE = "direct-exchange";
+
+    public static final String TIMEOUT_DEAD_LETTER_QUEUE = "timeout-dead-letter-queue";
+
+    public static final String REJECT_DEAD_LETTER_QUEUE = "dead-letter-queue";
+
+    public static final String TIMEOUT_DEAD_LETTER_ROUTE_KEY = "timeout-dead-letter-route-key";
+
+    public static final String REJECT_DEAD_LETTER_ROUTE_KEY = "reject-dead-letter-route-key";
+
+    public static final String DEAD_LETTER_FANOUT_EXCHANGE = "dead-letter-fanout-exchange";
+
+    public static final String FANOUT_TIMEOUT_QUEUE = "fanout-timeout-queue";
+
+    public static final String FANOUT_REJECT_QUEUE = "fanout-reject-queue";
+
+    private static final String QUEUE_ARG_MESSAGE_TTL = "x-message-ttl";
+
+    private static final String QUEUE_ARG_DEAD_LETTER_EXCHANGE = "x-dead-letter-exchange";
+
+    private static final String QUEUE_ARG_DEAD_LETTER_ROUTING_KEY = "x-dead-letter-routing-key";
+
+    @Bean(TIMEOUT_DEAD_LETTER_QUEUE)
+    public Queue timeoutDeadLetterQueue() {
+        return QueueBuilder
+                .durable(TIMEOUT_DEAD_LETTER_QUEUE)
+                .build();
+    }
+
+    @Bean(REJECT_DEAD_LETTER_QUEUE)
+    public Queue rejectDeadLetterQueue() {
+        return QueueBuilder.durable(REJECT_DEAD_LETTER_QUEUE).build();
+    }
+
+
+    @Bean(DIRECT_EXCHANGE)
+    public DirectExchange directExchange() {
+        return new DirectExchange(DIRECT_EXCHANGE);
+    }
+
+
+    @Bean
+    public Binding timeoutDirectExchangeBinding(@Qualifier(TIMEOUT_DEAD_LETTER_QUEUE) Queue queue, @Qualifier(DIRECT_EXCHANGE) DirectExchange directExchange) {
+        return BindingBuilder.bind(queue).to(directExchange).with(TIMEOUT_DEAD_LETTER_ROUTE_KEY);
+    }
+
+    @Bean
+    public Binding rejectDirectExchangeBinding(@Qualifier(REJECT_DEAD_LETTER_QUEUE) Queue queue, @Qualifier(DIRECT_EXCHANGE) DirectExchange directExchange) {
+        return BindingBuilder.bind(queue).to(directExchange).with(REJECT_DEAD_LETTER_ROUTE_KEY);
+    }
+
+    @Bean(FANOUT_TIMEOUT_QUEUE)
+    public Queue timeoutQueue() {
+        // 正常队列绑定死信交换机,并设置route key
+        // 设置超时时间为5s
+        return QueueBuilder.durable(FANOUT_TIMEOUT_QUEUE)
+                .withArgument(QUEUE_ARG_MESSAGE_TTL, 5000)
+                .withArgument(QUEUE_ARG_DEAD_LETTER_EXCHANGE, DIRECT_EXCHANGE)
+                .withArgument(QUEUE_ARG_DEAD_LETTER_ROUTING_KEY, TIMEOUT_DEAD_LETTER_ROUTE_KEY)
+                .build();
+    }
+
+    @Bean(FANOUT_REJECT_QUEUE)
+    public Queue rejectQueue() {
+        // 正常队列绑定死信交换机,并设置route key
+        return QueueBuilder.durable(FANOUT_REJECT_QUEUE)
+                .withArgument(QUEUE_ARG_DEAD_LETTER_EXCHANGE, DIRECT_EXCHANGE)
+                .withArgument(QUEUE_ARG_DEAD_LETTER_ROUTING_KEY, REJECT_DEAD_LETTER_ROUTE_KEY)
+                .build();
+    }
+
+    @Bean(DEAD_LETTER_FANOUT_EXCHANGE)
+    public FanoutExchange deadLetterFanoutExchange() {
+        return new FanoutExchange(DEAD_LETTER_FANOUT_EXCHANGE);
+    }
+
+
+    @Bean
+    public Binding timeoutFanoutExchange(@Qualifier(FANOUT_TIMEOUT_QUEUE) Queue queue, @Qualifier(DEAD_LETTER_FANOUT_EXCHANGE) FanoutExchange fanoutExchange) {
+        return BindingBuilder.bind(queue).to(fanoutExchange);
+    }
+
+    @Bean
+    public Binding rejectFanoutExchange(@Qualifier(FANOUT_REJECT_QUEUE) Queue queue, @Qualifier(DEAD_LETTER_FANOUT_EXCHANGE) FanoutExchange fanoutExchange) {
+        return BindingBuilder.bind(queue).to(fanoutExchange);
+    }
+
+}
+```
+
+发送消息到正常队列
+
+```java
+@Slf4j
+@Service
+public class RabbitMQService {
+
+    private final RabbitTemplate rabbitTemplate;
+
+    public RabbitMQService(@Qualifier("rabbitTemplate") RabbitTemplate rabbitTemplate) {
+        this.rabbitTemplate = rabbitTemplate;
+    }
+
+    public void deadLetterTest() {
+        rabbitTemplate.convertAndSend(RabbitMQConfig.DEAD_LETTER_FANOUT_EXCHANGE, "", "dead letter reject/timeout test");
+    }
+}
+```
+
+消费者端配置
+
+```java
+@Configuration
+public class RabbitMQConfig {
+    // 死信队列demo配置
+
+    public static final String DIRECT_EXCHANGE = "direct-exchange";
+
+    public static final String TIMEOUT_DEAD_LETTER_QUEUE = "timeout-dead-letter-queue";
+
+    public static final String REJECT_DEAD_LETTER_QUEUE = "dead-letter-queue";
+
+    public static final String REJECT_DEAD_LETTER_ROUTE_KEY = "reject-dead-letter-route-key";
+
+    public static final String FANOUT_TIMEOUT_QUEUE = "fanout-timeout-queue";
+
+    public static final String FANOUT_REJECT_QUEUE = "fanout-reject-queue";
+
+    private static final String QUEUE_ARG_DEAD_LETTER_EXCHANGE = "x-dead-letter-exchange";
+
+    private static final String QUEUE_ARG_DEAD_LETTER_ROUTING_KEY = "x-dead-letter-routing-key";
+
+
+    @Bean(TIMEOUT_DEAD_LETTER_QUEUE)
+    public Queue timeoutDeadLetterQueue() {
+        return new Queue(TIMEOUT_DEAD_LETTER_QUEUE);
+    }
+
+    @Bean(REJECT_DEAD_LETTER_QUEUE)
+    public Queue rejectDeadLetterQueue() {
+        return new Queue(REJECT_DEAD_LETTER_QUEUE);
+    }
+
+    @Bean(FANOUT_REJECT_QUEUE)
+    public Queue rejectQueue() {
+        // 此处队列的配置需要与生产者队列配置一致
+        // 需要绑定死信交换机,以及路由key
+        return QueueBuilder.durable(FANOUT_REJECT_QUEUE)
+                .withArgument(QUEUE_ARG_DEAD_LETTER_EXCHANGE, DIRECT_EXCHANGE)
+                .withArgument(QUEUE_ARG_DEAD_LETTER_ROUTING_KEY, REJECT_DEAD_LETTER_ROUTE_KEY)
+                .build();
+    }
+}
+```
+
+具体消费代码
+
+```java
+@Component
+@Slf4j
+public class RabbitMQListener {
+	// 死信队列demo消费者
+
+    @RabbitListener(queues = RabbitMQConfig.FANOUT_REJECT_QUEUE)
+    public void rejectConsumer(String msg, Channel channel, Message message) throws IOException {
+        log.info("reject consumer receive msg:{}", msg);
+        long deliveryTag = message.getMessageProperties().getDeliveryTag();
+        // 死信测试,直接拒绝,并且第二个参数设置为false,不再次放入当前队列中,而是存放到具体的死信队列中
+        channel.basicReject(deliveryTag, false);
+    }
+
+
+    @RabbitListener(queues = RabbitMQConfig.REJECT_DEAD_LETTER_QUEUE)
+    public void rejectDeadLetterQueue(String msg, Channel channel, Message message) throws IOException {
+        long deliveryTag = message.getMessageProperties().getDeliveryTag();
+        log.info("reject dead letter queue receive msg:{},id:{}", msg, deliveryTag);
+        try {
+            log.info("type:reject.dead letter confirmed msg:{},tag:{}", msg, deliveryTag);
+            channel.basicAck(deliveryTag, false);
+        } catch (Exception e) {
+            channel.basicReject(deliveryTag, true);
+        }
+    }
+
+
+    @RabbitListener(queues = RabbitMQConfig.TIMEOUT_DEAD_LETTER_QUEUE)
+    public void timeoutDeadLetterQueue(String msg, Channel channel, Message message) throws IOException {
+        long deliveryTag = message.getMessageProperties().getDeliveryTag();
+        log.info("timeout dead letter queue receive msg:{},tag:{}", msg, deliveryTag);
+        try {
+            log.info("type:timeout.dead letter confirmed msg:{},tag:{}", msg, deliveryTag);
+            channel.basicAck(deliveryTag, false);
+        } catch (Exception e) {
+            channel.basicReject(deliveryTag, true);
+        }
+    }
+
+
+}
+```
+
+上述代码具体流程:
+
+首先由消息生产者生成消息,发送到**DEAD_LETTER_FANOUT_EXCHANGE交换机**,由于此交换机是``fanout``交换机,所以会向他所绑定的2个队列(**FANOUT_TIMEOUT_QUEUE**和**FANOUT_REJECT_QUEUE**队列)发送消息,由于消费者端只对**FANOUT_REJECT_QUEUE**队列消费,所以会进入``rejectConsumer``方法,但由于此方法内调用了``basicReject``方法,并且没有重新放入到**FANOUT_REJECT_QUEUE**队列中所以会根据设置的routing key进入绑定在**FANOUT_REJECT_QUEUE**上的**REJECT_DEAD_LETTER_QUEUE**死信队列中,在发送到消费者端进行消费.而进入**FANOUT_TIMEOUT_QUEUE**队列的消息,会因为没有在5秒内被消费,根据设置的routing key路由到**TIMEOUT_DEAD_LETTER_QUEUE**中,最后发送到消费端消费
+
+
 
 ### 生成者消息送达确认机制
 

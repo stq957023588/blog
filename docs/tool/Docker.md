@@ -75,6 +75,7 @@ docker network inspect [网络名称]
   docker cp [容器名称]:[容器文件] [宿主机文件路径]
   ```
 
+> 如果需要复制文件夹下所有文件而不是文件夹本身,使用``/.``结尾
 
 ### docker run 
 
