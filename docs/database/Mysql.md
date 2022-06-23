@@ -1,14 +1,68 @@
 # 基础操作
 
-* 查看是否有安装Mysql
-  
-  > mysql -V
-  
-* 查询my.cnf所在位置
-  
-  > find / -name my.cnf
+命令行登录
 
-# 数据库数据迁移
+```shell
+# mysql -u用户名 -p密码 -h主机
+mysql -uroot -p123456 -h127.0.0.1
+```
+
+查看是否有安装Mysql
+
+```shell
+mysql -V
+```
+
+查询my.cnf所在位置
+
+```shell
+find / -name my.cnf
+```
+
+# 数据备份以及恢复
+
+## 备份
+
+备份数据库(database)
+
+```shell
+# mysqldump -u用户名 -p -h主机 数据库名 > 存放目标文件全路径
+mysqldump -uroot -p laboratory > laboratory_backup.sql
+```
+
+备份表
+
+```shell
+# mysqldump -u用户名 -p -h主机 数据库名 表名 > 存放目标文件全路径
+mysqldump -uroot -p laboratory student > laboratory_student_backup.sql
+```
+
+## 恢复
+
+恢复数据库数据,数据库(database)必须先创建好
+
+```shell
+mysql -uroot -p laboratory < laboratory_backup.sql
+```
+
+恢复表数据,表可以不事先创建好
+
+```shell
+mysql -uroot -p laboratory < laboratory_student_backup.sql
+```
+
+使用source恢复数据,需要在客户端进行
+
+```sql
+# source 文件名称
+source laboratory_backup.sql
+```
+
+参考
+
+[mysql 使用sqldump来进行数据库还原](http://t.zoukankan.com/Eaglery-p-5278754.html)
+
+[MySQLmysqldump命令](https://blog.csdn.net/weixin_42347763/article/details/113168026)
 
 # 一些报错
 
@@ -41,7 +95,10 @@ java.sql.SQLException: Incorrect string value: '\xF0\x9F\x90\xBA' for column 'xx
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
    ```
 
-   
+
+# 存储过程
+
+
 
 # 常用方法
 
@@ -127,6 +184,12 @@ END;
 > 学生表中存在班级ID和班级名称,存在传递依赖,班级名称依赖班级ID,班级ID依赖学生表主键
 
 # 索引
+
+## 索引相关的文章
+
+[索引是如何实现的](https://baijiahao.baidu.com/s?id=1721102142129449236&wfr=spider&for=pc)
+
+[聚集索引和非聚集索引的区别](https://m.php.cn/article/489392.html)
 
 ## 索引失效的情况
 

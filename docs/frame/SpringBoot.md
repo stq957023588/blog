@@ -783,6 +783,24 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
 ```
 
+# 定时任务
+
+## ThreadPoolTaskScheduler
+
+配置
+
+```java
+@Bean
+public ThreadPoolTaskScheduler threadPoolTaskScheduler(){
+    ThreadPoolTaskScheduler threadPoolTaskScheduler = new ThreadPoolTaskScheduler();
+    // 设置定时任务线程池核心线程数
+    threadPoolTaskScheduler.setPoolSize(2);
+    // 设置定时r
+    threadPoolTaskScheduler.setThreadFactory(new NamedThreadFactory("邮件发送失败处理"));
+    return threadPoolTaskScheduler;
+}
+```
+
 # 集成
 
 

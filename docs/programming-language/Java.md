@@ -2,7 +2,23 @@
 
 一个面向对象的编程语言
 
+
+
 # JVM
+
+## 获取自定义JVM参数
+
+```java
+// 自定义JVM参数 -Dfool.string=fool -Dfool.boolean=true
+String foolString = "fool.string";
+// 获取字符串参数
+System.getProperty(foolString);
+String foolBoolean = "fool.boolean";
+// 获取布尔值参数,只有在JVM参数是true时才返回true,是其他值的时候都返回false,包括不存在的值的
+Boolean.getBoolean(foolBoolean);
+```
+
+
 
 ## 内存模型
 
