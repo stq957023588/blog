@@ -146,3 +146,6 @@ public class TimerWheel {
 
 ```
 
+参考
+
+[时间轮在Kafka中的运用](https://mp.weixin.qq.com/s/nYokg1QnVrHjNNT36k5tig)
