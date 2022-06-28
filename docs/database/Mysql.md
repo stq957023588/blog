@@ -19,6 +19,14 @@ mysql -V
 find / -name my.cnf
 ```
 
+# 数据库锁的种类
+
+
+
+参考
+
+> [MySQL 中有哪些锁？表级锁和行级锁有什么区别？](https://mp.weixin.qq.com/s/Inocu3vjMG4ivE19HrxR3g)
+
 # 数据备份以及恢复
 
 ## 备份
