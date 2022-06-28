@@ -1,5 +1,27 @@
 #  Docker
 
+## Docker Desktop安装注意
+
+### 修改镜像源
+
+```json
+{
+  "registry-mirrors": [
+    "https://registry.docker-cn.com"
+  ]
+}
+```
+
+
+
+### 修改镜像存放位置
+
+#### WSL虚拟环境
+
+参考
+
+> [Docker Desktop更改镜像存储位置_feir_2011的博客-CSDN博客_docker修改镜像存储位置](https://blog.csdn.net/feir_2011/article/details/124148825)
+
 ## Docker命令
 
 查看容器日志
@@ -97,25 +119,33 @@ docker network inspect [网络名称]
 
 ### mysql命令
 
-- 普通启动
+普通启动
 
-  ```shell
-  docker run -d --name mysql8 -p 3306:3306 -e MYSQL_ROOT_PASSWORD=123456 mysql:latest --lower_case_table_names=1
-  ```
+```shell
+docker run -d --name mysql8 -p 3306:3306 -e MYSQL_ROOT_PASSWORD=123456 mysql:latest --lower_case_table_names=1
+```
 
-- 导出指定database数据
+导出指定database数据
 
-  ```shell
-  docker exec -it  [容器名称] mysqldump -u[用户名] -p[密码] [database] > [保存到本地的SQL文件地址]
-  ```
+```shell
+docker exec -it  [容器名称] mysqldump -u[用户名] -p[密码] [database] > [保存到本地的SQL文件地址]
+```
 
-- 导出全部数据以及表结构
+导出全部数据以及表结构
 
-  ```shell
-  docker exec -it  [容器名称] mysqldump -u[用户名] -p[密码] --all-databases > [保存到本地的SQL文件地址]
-  ```
+```shell
+docker exec -it  [容器名称] mysqldump -u[用户名] -p[密码] --all-databases > [保存到本地的SQL文件地址]
+```
 
-  
+### redis
+
+带密码启动(密码:123456)
+
+```shell
+docker run -itd --name redis -p 6379:6379 redis --requirepass 123456
+```
+
+
 
 ## Dockerfile
 
