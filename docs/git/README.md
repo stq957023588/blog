@@ -38,6 +38,14 @@
 
 ## 拉取,提交失败等情况处理方法
 
+### 拉取提示:fatal: refusing to merge unrelated histories
+
+在命令后面添加``--allow-unrelated-histories``
+
+```shell
+git pull --allow-unrelated-histories
+```
+
 ### 拉取提示:Your account has been blocked
 
 1. 删除当前远程地址
