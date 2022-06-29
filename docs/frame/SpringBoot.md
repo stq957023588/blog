@@ -2,6 +2,63 @@
 
 > 后台框架
 
+# 事物
+
+在方法上添加``@Transactional``可以开启一个事物
+
+因为Spring中的代理是基于对象的,所以在同一个类中调用报错是不会回滚的
+
+例:
+
+
+
+当分别在不同类中时互相调用,即便异常捕获了,也会导致所有方法都会被回滚
+
+例:
+
+服务A
+
+```java
+@Service
+public class ServiceA{
+    // ...
+    
+    @Transactional(rollbackFor = Exception.class)
+    public void transactionalTest() {
+       	// 具体数据库操作....
+        // 模拟报错
+        int i = 1/ 0;
+    }
+}
+```
+
+服务B
+
+```java
+@Service
+public class ServiceB{
+    private final ServiceA serviceA;
+    public ServiceB(ServiceA serviceA){
+        this.serviceA = serviceA;
+    }
+    
+    // ...
+    
+    @Transactional(rollbackFor = Exception.class)
+    public void transactionalTest() {
+       	// 具体数据库操作....
+        
+        try{
+            serviceA.transactionalTest();
+        }catch(Exception e){
+            // 具体异常操作
+        }
+    }
+}
+```
+
+在服务B中调用服务A中的方法时,服务A报错,即便在服务B中被捕获了,服务A和B都会进行回滚
+
 # 配置启动参数
 
 * 在application.yml 中配置
