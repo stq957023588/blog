@@ -36,6 +36,29 @@ spring:
 
 https://www.cnblogs.com/javaguide/p/springboot-auto-config.html
 
+# SpringBean的生命周期
+
+1. 实例化
+2. 属性赋值
+3. 初始化
+4. 销毁
+
+# Spring的三级缓存
+
+Spring的三级缓存是为了解决循环依赖的问题
+
+一级缓存存放已经实例化并完成属性赋值的bean
+
+二级缓存存放已经实例化但还没有完成属性赋值的bean
+
+三级缓存存放bean工厂(beanFactory)
+
+# Spring中的代理
+
+在Spring中,如果如果目标对象实现了接口,那么采用的是JDK动态代理;如果未实现接口,那么采用的是CGLIB代理
+
+CGLIB代理和JDK代理使用方法比较类似,都要使用到类加载器(ClassLoader),接口类型(interface),以及增强方法.两者在实现增强方法上有所区别,JDK动态代理的增强方法需要实现InvocationHandler,并重写invoke方法;而CGLIB则是实现MethodInterceptor,并重写intercept
+
 # 创建一个Spring starter
 
 1. 创建一个Maven项目
