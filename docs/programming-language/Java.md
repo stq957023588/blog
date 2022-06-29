@@ -326,6 +326,16 @@ public class Application {
 
 # 并发
 
+## AQS
+
+[一行一行源码分析清楚 AbstractQueuedSynchronizer](/programming-language/一行一行源码分析清楚AbstractQueuedSynchronizer.md)
+
+[一行一行源码分析清楚 AbstractQueuedSynchronizer2](/programming-language/一行一行源码分析清楚+AbstractQueuedSynchronizer+(二).md)
+
+[一行一行源码分析清楚 AbstractQueuedSynchronizer3](/programming-language/一行一行源码分析清楚+AbstractQueuedSynchronizer+(三).md)
+
+原作者:[Javadoop](https://www.javadoop.com/)
+
 ## 线程池
 
 ### 创建线程池
@@ -411,7 +421,19 @@ ThreadPoolExecutor threadPoolExecutor=new ThreadPoolExecutor(5,5,1,TimeUnit.MINU
 
 HashMap中将hash生成的整型转换成链表数组中的下标的方法使用的位运算return h & (length-1) 表示的是 h 除以 length - 1 取余,而要使位运算成立,length必须为2的指数
 
+### put时候发生的事情
 
+首先会判断map是否为空或者长度是否为0,如果是重新计算长度
+
+然后判断是否hash冲突了,如果不冲突就将数据根据计算出来的hash放在数组中
+
+如果冲突了:
+
+1. 如果key是同一个,更新value
+2. 如果已经转为红黑树,调用putTreeVal
+3. 其他情况,将值挂载在对应下标的数组元素链表中
+
+最后map大小自增1,然后判断是否超过了阈值(负载因子*容量),如果超过了,重新计算大小
 
 # 第三方类库
 
