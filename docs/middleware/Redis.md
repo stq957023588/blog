@@ -1,3 +1,11 @@
+# redis存储数据类型
+
+String,Hash,List,Set,Ordered Set
+
+## List
+
+redis中的list是双向链表的数据结构(类似Java中的LinkedList)
+
 # redis为什么能高速缓存
 
 todo
