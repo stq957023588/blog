@@ -67,8 +67,8 @@ docker commit [OPTIONS] CONTAINER [REPOSITORY[:TAG]]
 # 查看所有网络
 docker network ls
 
-# 创建网络
-docker network create [网络名称]
+# 创建网络，并固定IP范围，只有使用了subnet才可以使容器在启动时指定ip
+docker network create --subnet=172.11.0.0/20 [网络名称]
 
 # 删除网络
 docker network rm [网络ID]
@@ -104,6 +104,7 @@ docker network inspect [网络名称]
 * -p <对外端口>:<Docker内部端口> 端口映射
 * --name <容器名称> 定义容器名称
 * --net <网络名称> 指定网络
+* --ip <IP地址> 在网络中指定ip地址，该网络创建时必须带--subnet参数
 * -e "<参数名称>=<参数值>" 定义环境变量
 * -v [宿主机文件路径]:[容器文件路径] 容器文件路径,必须是在创建镜像时配置好的才可以使用,不是所有路径都可以的
 * --link <映射名称>:<镜像名称>  内部连接,如Springboot项目连接Docker内部的Mysql,可使用此来进行连接
@@ -117,12 +118,20 @@ docker network inspect [网络名称]
 
 ## 常用镜像命令
 
-### mysql命令
+### mysql
 
-普通启动
+容器名称 mysql
+
+宿主机访问使用端口3307
+
+root账号密码123456
+
+忽略大小写
+
+使用fool网络，并固定ip172.18.0.4
 
 ```shell
-docker run -d --name mysql8 -p 3306:3306 -e MYSQL_ROOT_PASSWORD=123456 mysql:latest --lower_case_table_names=1
+docker run -d --name mysql -p 3307:3306 -e MYSQL_ROOT_PASSWORD=123456 --net fool --ip 172.18.0.4 mysql:latest --lower_case_table_names=1
 ```
 
 导出指定database数据
@@ -141,11 +150,25 @@ docker exec -it  [容器名称] mysqldump -u[用户名] -p[密码] --all-databas
 
 带密码启动(密码:123456)
 
+宿主机访问使用端口6380
+
+使用fool网络，需要先创建fool网络
+
+固定fool中的ip为172.18.0.3，使用固定IP，网络创建时必须带--subnet参数指定网段
+
 ```shell
-docker run -itd --name redis -p 6379:6379 redis --requirepass 123456
+docker run -itd --name redis -p 6380:6379 --net fool --ip 172.18.0.3 redis --requirepass 123456
 ```
 
+### minio
 
+末尾的/data是指定minio文件存储位置（容器内部的位置）
+
+将数据挂载在D盘data文件夹，配置文件挂载在D盘minio/config文件夹下
+
+```shell
+docker run -p 8000:9000 -p 8001:9001 --name minio -v D:\data:/data -v D:\minio\config:/root/.minio minio/minio server --console-address ":9000" --address ":9001" /data
+```
 
 ## Dockerfile
 

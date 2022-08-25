@@ -2,6 +2,54 @@
 
 > 后台框架
 
+# IDEA配置文件配置不报警告方法
+
+## 配置property类
+
+创建一个类，在类上添加**@Configuration**、**@ConfigurationProperties(prefix = "test")**注解，并写好getter，setter方法，并再Maven窗口使用Package命令
+
+```java
+@Configuration
+@ConfigurationProperties(prefix = "test")
+public class TestProperty {
+
+    private String ccc;
+
+    public String getCcc() {
+        return ccc;
+    }
+
+    public void setCcc(String ccc) {
+        this.ccc = ccc;
+    }
+}
+```
+
+## 在resources/META-INF下创建additional-spring-configuration-metadata.json
+
+![image-20220818143043268](image-20220818143043268.png) 
+
+格式：
+
+```json
+{
+  "properties": [
+    {
+      "name": "asd",
+      "type": "java.lang.String",
+      "description": "Description for asd."
+  }
+] }
+```
+
+# 异常及处理方法
+
+**_org.springframework.beans.factory.BeanCreationException_**
+
+原因：自动注入时，使用的是父类接口，存在多个实现类的情况下出现
+
+解决方案：使用具体的实现类进行注入
+
 # 事物
 
 在方法上添加``@Transactional``可以开启一个事物
