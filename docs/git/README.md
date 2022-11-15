@@ -36,6 +36,19 @@
 > git --global config user.name fool     
 > git --global config user.email fool@fool.com
 
+## Git解决冲突后仍提示Merging解决办法
+
+```shell
+#在 android studio Terminal窗口下，查看当前git的状态
+git status
+#红色字体显示当前冲突的文件，如delete.......filename.....
+#根据提示，使用rm命令删除该文件即可
+git rm /app/src/......filename....
+
+```
+
+
+
 ## 拉取,提交失败等情况处理方法
 
 ### 拉取提示:fatal: refusing to merge unrelated histories

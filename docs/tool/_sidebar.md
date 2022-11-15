@@ -5,4 +5,5 @@
 * [测试工具](/tool/TestTools.md)
 * [Tomcat](/tool/Tomcat.md)
 * [好用的IDEA插件](/tool/好用的IDEA插件.md)
+* [MiniConda](/tool/Miniconda.md)
 

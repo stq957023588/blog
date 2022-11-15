@@ -229,8 +229,7 @@ com.fool.ThreadPoolAutoConfiguration
 - 配置类
 
   ```java
-  
-  @ControllerAdvice
+  @RestControllerAdvice(basePackages="project package ")
   public class ResponseConfig implements ResponseBodyAdvice<Object> {
       @Override
       public boolean supports(MethodParameter returnType, Class<? extends HttpMessageConverter<?>> converterType) {
@@ -266,7 +265,7 @@ com.fool.ThreadPoolAutoConfiguration
       }
   }
   ```
-
+  
 - 自定义HttpMessageConverter
 
   如果不用自定义,那么当方法返回值为String类型时,响应请求头为text/plain,使用后变为application/json
@@ -337,10 +336,8 @@ com.fool.ThreadPoolAutoConfiguration
 
   ```java
   // AbstractMessageConverterMethodProcessor类中的方法
-  protected List<MediaType> getProducibleMediaTypes(
-  		HttpServletRequest request, Class<?> valueClass, @Nullable Type targetType) {
-  	Set<MediaType> mediaTypes =
-  			(Set<MediaType>) request.getAttribute(HandlerMapping.PRODUCIBLE_MEDIA_TYPES_ATTRIBUTE);
+  protected List<MediaType> getProducibleMediaTypes(HttpServletRequest request, Class<?> valueClass, @Nullable Type targetType) {
+  	Set<MediaType> mediaTypes = (Set<MediaType>) request.getAttribute(HandlerMapping.PRODUCIBLE_MEDIA_TYPES_ATTRIBUTE);
   	if (!CollectionUtils.isEmpty(mediaTypes)) {
   		return new ArrayList<>(mediaTypes);
   	}
@@ -365,11 +362,11 @@ com.fool.ThreadPoolAutoConfiguration
   	}
   }
   ```
-
+  
   并且在获取MediaType数组后,会进行排序,然后使用第一个MediaType
 
   ```java
-  HttpServletRequest request = inputMessage.getServletRequest();
+HttpServletRequest request = inputMessage.getServletRequest();
   List<MediaType> acceptableTypes = getAcceptableMediaTypes(request);
   // 将HttpMessageConvertor中的MediaType
   List<MediaType> producibleTypes = getProducibleMediaTypes(request, valueType, targetType);
@@ -408,9 +405,9 @@ com.fool.ThreadPoolAutoConfiguration
   	}
   }
   ```
-
-  回到BeanConfig,在实例化FastJsonHttpMessageConverter时,添加一个application/json的MediaType,并将用于排序的qualityValue设置为最大1.0(qualityValue范围为0.0 ~ 1.0).由于FastJsonHttpMessageConverter.getSupportedMediaTypes返回的是一个UnmodifiableRandomAccessList(不可修改数组),所以需要将UnmodifiableRandomAccessList转成ArrayList后添加MediaType.最后将包含新建的MediaType的list赋值给FastJsonHttpMessageConverter.
   
+  回到BeanConfig,在实例化FastJsonHttpMessageConverter时,添加一个application/json的MediaType,并将用于排序的qualityValue设置为最大1.0(qualityValue范围为0.0 ~ 1.0).由于FastJsonHttpMessageConverter.getSupportedMediaTypes返回的是一个UnmodifiableRandomAccessList(不可修改数组),所以需要将UnmodifiableRandomAccessList转成ArrayList后添加MediaType.最后将包含新建的MediaType的list赋值给FastJsonHttpMessageConverter.
+
 - 访问找不到路径的情况下,仍旧范围200的情况,定义全局异常处理,返回统一的结果类
 
   ```java
@@ -445,7 +442,7 @@ com.fool.ThreadPoolAutoConfiguration
     # 404会抛出错误设置,防止找不到路径http返回码还是200
     mvc:
       throw-exception-if-no-handler-found: true
-    # 404会抛出错误设置,防止找不到路径http返回码还是200
+    # 404会抛出错误设置,防止找不到路径http返回码还是200，如果出现Swagger页面无法访问的时候可以删除此配置
     resources:
       add-mappings: false
   ```
@@ -454,7 +451,7 @@ com.fool.ThreadPoolAutoConfiguration
 
 ## 与Swagger冲突的地方
 
-在将spring.resources.add-mappings 设置为 false 之后,会导致swagger无法访问,需要将GlobalExceptionHandler和ResponseConfig类上的 ControllerAdvice 修改为  @RestControllerAdvice(basePackages="project package")
+在将spring.resources.add-mappings 设置为 false 之后,会导致swagger无法访问,需要将GlobalExceptionHandler和ResponseConfig类上的 ControllerAdvice 修改为  @RestControllerAdvice(basePackages="project package")，不过可能会导致404异常无法捕获
 
 # 自定义application.yml中的参数
 
@@ -487,6 +484,119 @@ plugin
         </excludes>
     </configuration>
 </plugin>
+```
+
+# SpEL（Spring Expression Language)
+
+## 自定义使用SpEL
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+Expression expression = parser.parseExpression("('Hello' + ' World').concat(#end)");
+EvaluationContext context = new StandardEvaluationContext();
+context.setVariable("end", "!");
+System.out.println(expression.getValue(context,String.class));
+```
+
+> context.setVariable方法中key不可以为root
+
+## 使用静态方法
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+// 使用Math.random()fa'g
+Expression expression = parser.parseExpression("T(java.lang.Math).random()*10");
+EvaluationContext context = new StandardEvaluationContext();
+context.setVariable("end", "!");
+System.out.println(expression.getValue(context,String.class));
+```
+
+
+
+# Validation
+
+用于入参校验
+
+## 使用方法
+
+实体类上标注具体的规则和校验组（组类别是自定义的Class）
+
+```java
+@Data
+public class Student{
+    
+    @NotBlank(groups = StudentValidateGroups.AddStudent.class)
+    private String name;
+    
+    @Range(min = 12, max = 20)
+    private Integer age;
+}
+```
+
+校验组定义,组别仅仅是一个空的接口类
+
+```java
+public class StudentValidateGroups{
+    public interface AddStudent{
+        
+    }
+    
+    public interface UpdateStudent{
+        
+    }
+}
+```
+
+
+
+controller类方法参数上添加需要校验注解
+
+```java
+@RestController
+public class StudentController{
+    
+    // 只校验实体类中groups为StudentValidateGroups.AddStudent.class的属性
+    @PostMapping("/student")
+    public void add(@Requestbody @Validated(StudentValidateGroups.AddStudent.class) Student student){
+        
+    }
+    
+}
+```
+
+
+
+## 自定义校验规则
+
+新建定义校验逻辑的校验类(需要实现ConstraionValidator)
+
+```java
+// 第一个泛型指的是注解的类型，第二个泛型指的是被注解的字段的类型
+public class TestValidator implements ConstraionValidator<TestValid,String>{
+    
+    // 第一个参数是被逐节字段的值，第二个参数是上下文
+    @Override
+    public boolean isValid(String value,ConstraionValidatorContext context){
+        return false;
+    }
+    
+}
+```
+
+注解
+
+```java
+@Target({ElementType.FIELD})
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Constraint(validateBy = TestValidator.class)
+public @interface TestValid{
+    String message() default "";
+    
+    Class<?>[] groups() default {};
+    
+    Class<? extends Payload>[] payload() default {};
+}
 ```
 
 # SpringSecurity
@@ -1957,6 +2067,10 @@ public class SwaggerConfig {
 
 ## 集成WebSocket
 
+### 使用STOMP协议
+
+
+
 ### 坑
 
 * Junit单元测试时,需在@SpringbootTest注解中添加webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT参数
@@ -2444,6 +2558,12 @@ value 取值列表:
 在使用Junit测试时,如果项目中包含WebSocket,@SpringBootTest需要添加参数webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
 
 # 注解
+
+## @Value
+
+用于注入配置文件的值
+
+例：@Value("${test.value:123}"),注入配置文件中test.value的值，如果不存在则使用默认值123
 
 ## @Autowired
 
