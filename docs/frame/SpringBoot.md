@@ -2,6 +2,39 @@
 
 > 后台框架
 
+# 源码
+
+## 获取排除自动注入配置
+
+AutoConfigurationImportSelector
+
+```java
+protected Set<String> getExclusions(AnnotationMetadata metadata, AnnotationAttributes attributes) {
+        Set<String> excluded = new LinkedHashSet();
+
+        excluded.addAll(this.asList(attributes, "exclude"));
+        excluded.addAll(Arrays.asList(attributes.getStringArray("excludeName")));
+        // 获取配置文件中的排除项
+        excluded.addAll(this.getExcludeAutoConfigurationsProperty());
+        return excluded;
+    }
+
+protected List<String> getExcludeAutoConfigurationsProperty() {
+    Environment environment = this.getEnvironment();
+    if (environment == null) {
+        return Collections.emptyList();
+    } else if (environment instanceof ConfigurableEnvironment) {
+        Binder binder = Binder.get(environment);
+        return (List)binder.bind("spring.autoconfigure.exclude", String[].class).map(Arrays::asList).orElse(Collections.emptyList());
+    } else {
+        String[] excludes = (String[])environment.getProperty("spring.autoconfigure.exclude", String[].class);
+        return excludes != null ? Arrays.asList(excludes) : Collections.emptyList();
+    }
+}
+```
+
+
+
 # IDEA配置文件配置不报警告方法
 
 ## 配置property类
@@ -598,6 +631,10 @@ public @interface TestValid{
     Class<? extends Payload>[] payload() default {};
 }
 ```
+
+# SpringRetry
+
+
 
 # SpringSecurity
 
