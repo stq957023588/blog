@@ -2,6 +2,14 @@
 
 一个面向对象的编程语言
 
+# CPU占用过高问题排查
+
+1. top 查看cpu占用情况
+2. top -Hp {PID} 查看进程中占用CPU过高的线程
+3. jstack {线程} > thread_stack.log 查看堆栈信息，找到对应占用CPU的代码
+
+
+
 # KeyTool
 
 用于生成证书
