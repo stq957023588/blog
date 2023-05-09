@@ -130,6 +130,65 @@ public interface ProviderService {
 
 # 集成OAuth 2.0
 
+## 添加接口权限校验
+
+对于类似Springboot中的接口权限校验功能，SpringCloud中可能需要添加额外的FilterSecurityInterceptor来实现
+
+### AuthorizedResourceServerConfiguration
+
+```java
+@Configuration
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+	private final CustomizeAccessDecisionManager accessDecisionManager;
+    private final CustomizeFilterInvocationSecurityMetadataSource securityMetadataSource;
+    private final ResourceServerProperties resource;
+    private final AuthenticationManager authenticationManager;
+    public AuthorizedResourceServerConfiguration(CustomizeAccessDecisionManager accessDecisionManager, CustomizeFilterInvocationSecurityMetadataSource securityMetadataSource, ResourceServerProperties resource, AuthenticationManager authenticationManager) {
+        this.accessDecisionManager = accessDecisionManager;
+        this.securityMetadataSource = securityMetadataSource;
+        this.resource = resource;
+        this.authenticationManager = authenticationManager;
+    }
+    @Override
+    public void configure(ResourceServerSecurityConfigurer resources) throws Exception {
+        resources.resourceId(resource.getResourceId());
+    }
+    @Override
+    public void configure(HttpSecurity http) throws Exception {
+        ObjectPostProcessor customizeProcessor = new CustomizeObjectPostProcessor(accessDecisionManager, securityMetadataSource);
+        http.authorizeRequests()
+                .anyRequest()
+                .authenticated()
+                .and()
+                .authorizeRequests()
+                .withObjectPostProcessor(customizeProcessor)
+                .and()
+                // 取消Session,使用JWT
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+        OAuth2WebSecurityExpressionHandler oAuth2WebSecurityExpressionHandler = new OAuth2WebSecurityExpressionHandler();
+        List> decisionVoters = new ArrayList<>();
+        WebExpressionVoter expressionVoter = new WebExpressionVoter();
+        expressionVoter.setExpressionHandler(oAuth2WebSecurityExpressionHandler);
+        decisionVoters.add(expressionVoter);
+        AffirmativeBased affirmativeBased = new AffirmativeBased(decisionVoters);
+        LinkedHashMap> requestMap = new LinkedHashMap<>();
+        requestMap.put(AnyRequestMatcher.INSTANCE, Collections.singletonList( () -> "authenticated"));
+        ExpressionBasedFilterInvocationSecurityMetadataSource expressionBasedFilterInvocationSecurityMetadataSource = new ExpressionBasedFilterInvocationSecurityMetadataSource(requestMap, oAuth2WebSecurityExpressionHandler);
+        FilterSecurityInterceptor securityInterceptor = new FilterSecurityInterceptor();
+        securityInterceptor.setSecurityMetadataSource(expressionBasedFilterInvocationSecurityMetadataSource );
+        securityInterceptor.setAccessDecisionManager(affirmativeBased);
+        securityInterceptor.setAuthenticationManager(authenticationManager);
+        securityInterceptor.afterPropertiesSet();
+        securityInterceptor.setObserveOncePerRequest(false);
+        http.addFilter(securityInterceptor);
+    }
+}
+```
+
+
+
+
+
 ## 添加邮箱验证码登录（新增GrantType）
 
 ### 流程图

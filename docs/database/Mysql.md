@@ -1,3 +1,47 @@
+# Win压缩包安装Mysql
+
+[Win压缩包安装MySql](https://zhuanlan.zhihu.com/p/265148449)
+
+1. 官网[下载](https://dev.mysql.com/downloads/mysql/)Zip压缩包
+2. 解压缩后进入文件夹，在文件夹下创建data文件夹和my.ini文件
+3. 修改my.ini
+
+```ini
+[mysql]
+default-character-set = utf8mb4    
+[mysqld]
+default-storage-engine=INNODB
+# MySQL安装根目录的路径。
+basedir=C:\Program Files\mysql-8.0.33-winx64
+# MySQL服务器数据目录的路径
+datadir=C:\Program Files\mysql-8.0.33-winx64\data
+#服务端默认编码（数据库级别）
+character_set_server = utf8mb4 
+```
+
+4. 环境变量下path下添加 bin 路径
+5. 管理员打开CMD命令窗口，运行命令
+
+```shell
+mysqld --initialize
+mysqld --install
+```
+
+6. 启动mysql
+
+```shell
+net start mysql
+```
+
+7. 查看mysql root用户临时密码，打开新建的data文件夹下 ``.err``结尾的文件，找到 A temporary password is generated for root@localhost：[临时密码]
+8. 登陆MySQL
+
+```shell
+mysql -u root -p [临时密码]
+```
+
+> 如果局域网内无法连接，在MySql所在Win上创建入站规则
+
 # 基础操作
 
 命令行登录
@@ -346,3 +390,9 @@ END;
   # Last_error表示最近主从复制遇到的问题
   show slave status;
   ```
+
+# 一些问题
+
+## group_cancat
+
+1. 在无数据的情况下使用group_cancat会产生一条全是null的数据，需要增加一个group by语句

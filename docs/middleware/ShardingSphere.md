@@ -20,6 +20,8 @@
 
 在application.yml中配置	
 
+#### 配置模式
+
 使用内存模式
 
 ```yaml
@@ -62,7 +64,7 @@ spring:
           operation-timeout-milliseconds: 2000
 ```
 
-配置数据源
+#### 配置数据源
 
 ```yaml
 spring:
@@ -89,7 +91,7 @@ spring:
         password: 123456
 ```
 
-配置分片规则
+#### 配置分片规则
 
 使用ShardingSphere自带的分片算法模板定义的具体的分片算法
 
@@ -115,7 +117,7 @@ spring:
               sharding-count: 4
 ```
 
-配置分布式key生成器
+#### 配置分布式key生成器
 
 ```yaml
 spring:
@@ -145,7 +147,7 @@ spring:
               max-vibration-offset: 3
 ```
 
-
+#### 配置表
 
 给具体的表定义分片规则,以及唯一键生成器定义
 
@@ -183,7 +185,9 @@ spring:
               
 ```
 
-配置绑定表,存在多表关联查询时添加绑定表设置,以防止笛卡尔积
+#### 配置绑定表
+
+存在多表关联查询时添加绑定表设置,以防止笛卡尔积
 
 ```yaml
 spring:
@@ -194,7 +198,7 @@ spring:
           - order,order_detail
 ```
 
-读写分离
+#### 读写分离
 
 > 读写分离使用的数据源是在spring.shardingsphere.rules.readwrite-splitting.data-sources定义的数据源名称
 
@@ -298,7 +302,7 @@ spring:
 2022-05-10 16:27:07.138  INFO 16084 --- [           main] ShardingSphere-SQL                       : Actual SQL: sharding01 ::: insert into `order_01`(id,`number`, total_price) values (?, ?, ?) ::: [209, 817f391bec83467b8f53f2c06e6a2de8, 41.13544372549201]
 ```
 
-数据加密,
+#### 数据加密
 
 ```yaml
 spring:
@@ -333,10 +337,6 @@ spring:
               aes-key-value: 123456abc
 
 ```
-
-
-
-
 
 #### 自定义分布式key
 
@@ -406,3 +406,15 @@ org.apache.shardingsphere.sharding.spi.KeyGenerateAlgorithm这个文件以text�
 新建一个类实现StandardShardingAlgorithm
 
 后续操作同[自定义分布式key](#自定义分布式key)
+
+## ShardingShpere-Proxy
+
+### 数据迁移
+
+参考：
+
+> [使用手册 :: ShardingSphere (apache.org)](https://shardingsphere.apache.org/document/5.3.1/cn/user-manual/shardingsphere-proxy/migration/usage/)
+
+注意:
+
+>数据迁移，mode必须是Cluster,可以使用ZooKeeper

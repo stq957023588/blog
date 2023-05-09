@@ -14,6 +14,10 @@
 
 用于生成证书
 
+```shell
+keytool -genkey -alias pacs -keyalg RSA -keypass 123456 -storepass -keystore "D:\Wowjoy\123.jks"
+```
+
 
 
 # 基础类型占用空间

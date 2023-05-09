@@ -357,3 +357,32 @@ manager.xml
 </Context>
 ```
 
+## ShardingSphere-Proxy镜像
+
+1. 下载并解压[ShardingSphere-Proxy](https://www.apache.org/dyn/closer.lua/shardingsphere/5.3.1/apache-shardingsphere-5.3.1-shardingsphere-proxy-bin.tar.gz)
+2. 准备Dockerfile
+
+```dockerfile
+FROM openjdk:8
+COPY apache-shardingsphere-5.3.1-shardingsphere-proxy-bin /usr/local/shardingsphere-proxy
+COPY mysql-connector-java-8.0.29.jar /usr/local/shardingsphere-proxy/ext-lib/
+WORKDIR /usr/local/shardingsphere-proxy
+EXPOSE 3307
+ENTRYPOINT bin/start.sh && tail -10f /usr/local/shardingsphere-proxy/logs/stdout.log
+```
+
+3. 将Dockerfile和解压后的ShardingSphere-Proxy文件夹放在同一目录下
+4. 在Dockerfile目录下运行build命令
+
+```shell
+docker build -t proxy:1.0.0 .
+```
+
+5. 运行镜像
+
+```shell
+docker run -d -p 3309:3307 --net migration --name proxy -v D:\Work\WorkSpace\dockerfile\shardingsphere-proxy\conf:/usr/local/shardingsphere-proxy/conf proxy:1.0.0
+```
+
+
+
