@@ -1,3 +1,13 @@
+# Windows安装Ubuntu子系统
+
+## 安装包安装
+
+参考链接
+
+>[Ubuntu设置、非C盘安装及重装_ubuntu必须安装在c盘吗_EcrayyarcE的博客-CSDN博客](https://blog.csdn.net/Echo__Yi/article/details/120987822)
+
+
+
 # 无法使用kill杀死的进程
 
 ## 产生原因
