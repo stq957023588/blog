@@ -37,16 +37,21 @@
 
 # 命令
 
-* 下载安装包
+下载安装包
 
-  ```shell
-  conda install pandas
-  ```
+```shell
+conda install <包名>[=version]
+```
 
-* 查看已安装的包
+查看当前环境已安装的包
 
-  ```shell
-  conda list
-  ```
+```shell
+conda list
+```
 
-* 
+查看已有python环境
+
+```shell
+conda info --env
+```
+

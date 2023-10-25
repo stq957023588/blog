@@ -360,7 +360,11 @@ public class Application {
 
 6. 打开程序A的输出控制台,可以发现已经执行了TestAgent.agentmain()方法
 
-# 并发
+# 多线程与并发
+
+## ThreadLocal
+
+ThreadLoca用于实现线程本地变量的存储，变量实际存储在Thread对象中，set时获取当前线程存以及线程储本地变量的ThreadLocalMap对象，以ThreadLocal对象为key，进行键值对存储，获取值（get方法）时也是通过获取当前线程以及当前线程的ThreadLocalMap对象，根据ThradLocal对象获取值
 
 ## AQS
 
