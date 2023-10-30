@@ -17,7 +17,7 @@ wsl --shutdown
 5. 导出当前Linux镜像
 
 ```shell
-wsl --export Ubuntu-22.04 H:\ubuntu22.04.tar 
+wsl --export Ubuntu-22.04 T:\ubuntu22.04.tar 
 ```
 
 其中，"Ubuntu-22.04"是使用"wsl -l -v"查看到的linux系统的名字和版本,H:\ubuntu22.04.tar 是导出路径
@@ -31,7 +31,7 @@ wsl --unregister Ubuntu-22.04
 7. 导入刚刚导出的系统到指定位置
 
 ```shell
-wsl --import Ubuntu-22.04 H:\Ubuntu2204 H:\ubuntu22.04.tar 
+wsl --import Ubuntu-22.04 T:\Ubuntu2204 T:\ubuntu22.04.tar 
 ```
 
 Ubuntu-22.04 Linux系统名称和版本

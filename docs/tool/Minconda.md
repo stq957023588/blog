@@ -37,10 +37,22 @@
 
 # 命令
 
+根据requirements.txt创建环境
+
+```shell
+conda create --name <environment_name> --file requirements.txt
+```
+
 下载安装包
 
 ```shell
 conda install <包名>[=version]
+```
+
+通过requirements.txt安装包
+
+```shell
+conda install --yes --file requirements.txt
 ```
 
 查看当前环境已安装的包
