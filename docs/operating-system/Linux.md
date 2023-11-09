@@ -172,6 +172,20 @@ rm -f <文件名称>
 tar -zxvf 压缩文件名.tar.gz
 ```
 
+移动文件到
+
+```shell
+mv [source] [target]
+```
+
+复制文件到
+
+```shell
+cp [source] [target]
+```
+
+
+
 # vi编辑
 
 查询文本

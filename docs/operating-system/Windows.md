@@ -47,3 +47,12 @@ ubuntu2204.exe config --default-user root
 9. 通过window卸载微软商店安装的Ubuntu
 
 > 参考：[WSL2安装ubuntu及修改安装位置 - 简书 (jianshu.com)](https://www.jianshu.com/p/6f3195bad5f1)
+
+
+
+升级wsl 到 wsl2
+
+```shell
+wsl.exe --set-version (distro name) 2
+```
+

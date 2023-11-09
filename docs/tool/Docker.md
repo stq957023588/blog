@@ -1,4 +1,4 @@
-#  Docker
+
 
 ## Docker Desktop安装注意
 
@@ -23,6 +23,14 @@
 > [Docker Desktop更改镜像存储位置_feir_2011的博客-CSDN博客_docker修改镜像存储位置](https://blog.csdn.net/feir_2011/article/details/124148825)
 
 ## Docker命令
+
+拉取镜像
+
+```shell
+docker pull [NAME]:[TAG]
+```
+
+
 
 查看容器日志
 
@@ -159,6 +167,16 @@ docker exec -it  [容器名称] mysqldump -u[用户名] -p[密码] --all-databas
 ```shell
 docker run -itd --name redis -p 6380:6379 --net fool --ip 172.18.0.3 redis --requirepass 123456
 ```
+
+### rabbitmq
+
+rabbitmq默认不开启管理页面，需要在控制执行命令打开
+
+```shell
+rabbitmq-plugins enable rabbitmq_management
+```
+
+
 
 ### minio
 
