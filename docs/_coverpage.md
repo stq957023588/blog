@@ -5,4 +5,4 @@
 
 > Increasing...
 
-[Get Started](#database)
+[Get Started](#前言)
