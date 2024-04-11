@@ -1,6 +1,6 @@
 ---
-name: AbstractQueuedSynchronizer
-title: 一行一行源码分析清楚AbstractQueuedSynchronizer
+name: AbstractQueuedSynchronizer-1
+title: 一行一行源码分析清楚 AbstractQueuedSynchronizer (yi)
 date: 2022-03-25 10:33:28
 tags: 
 categories: concurrency
@@ -47,7 +47,7 @@ private transient Thread exclusiveOwnerThread; //继承自AbstractOwnableSynchro
 
 AbstractQueuedSynchronizer 的等待队列示意如下所示，注意了，之后分析过程中所说的 queue，也就是阻塞队列**不包含 head，不包含 head，不包含 head**。
 
-![aqs-0](https://www.javadoop.com/blogimages/AbstractQueuedSynchronizer/aqs-0.png)
+![aqs-0](aqs-0.png)
 
 等待队列中每个线程被包装成一个 Node 实例，数据结构是链表，一起看看源码吧：
 
@@ -95,7 +95,7 @@ Node 的数据结构其实也挺简单的，就是 thread + waitStatus + pre + n
 
 上面的是基础知识，后面会多次用到，心里要时刻记着它们，心里想着这个结构图就可以了。下面，我们开始说 ReentrantLock 的公平锁。再次强调，我说的阻塞队列不包含 head 节点。
 
-![aqs-0](https://www.javadoop.com/blogimages/AbstractQueuedSynchronizer/aqs-0.png)
+![aqs-0](aqs-0.png)
 
 首先，我们先看下 ReentrantLock 的使用方式。
 
@@ -298,7 +298,7 @@ static final class FairSync extends Sync {
                 // 注意，阻塞队列不包含head节点，head一般指的是占有锁的线程，head后面的才称为阻塞队列
                 // 所以当前节点可以去试抢一下锁
                 // 这里我们说一下，为什么可以去试试：
-                // 首先，它是队头，这个是第一个条件，其次，当前的head有可能是刚刚初始化的node，
+                // 首先，它是队头，这个是第一个条件；其次，当前的head有可能是刚刚初始化的node；或者占有锁的线程执行完毕，释放锁了
                 // enq(node) 方法里面有提到，head是延时初始化的，而且new Node()的时候没有设置任何线程
                 // 也就是说，当前的head不属于任何一个线程，所以作为队头，可以去试一试，
                 // tryAcquire已经分析过了, 忘记了请往前看一下，就是简单用CAS试操作一下state
@@ -401,7 +401,7 @@ static final class FairSync extends Sync {
    // 仔细看shouldParkAfterFailedAcquire(p, node)，我们可以发现，其实第一次进来的时候，一般都不会返回true的，原因很简单，前驱节点的waitStatus=-1是依赖于后继节点设置的。也就是说，我都还没给前驱设置-1呢，怎么可能是true呢，但是要看到，这个方法是套在循环里的，所以第二次进来的时候状态就是-1了。
   
     // 解释下为什么shouldParkAfterFailedAcquire(p, node)返回false的时候不直接挂起线程：
-    // => 是为了应对在经过这个方法后，node已经是head的直接后继节点了。剩下的读者自己想想吧。
+    // => 是为了应对在经过这个方法后，node已经是head的直接后继节点了；或者是前面节点取消了竞争；或者是节点状态发生改变。剩下的读者自己想想吧。
 }
 ```
 
@@ -488,7 +488,7 @@ private void unparkSuccessor(Node node) {
 ```java
 private final boolean parkAndCheckInterrupt() {
     LockSupport.park(this); // 刚刚线程被挂起在这里了
-    return Thread.interrupted();
+    return Thread.interrupted();// 返回线程是否是中断状态，是否中断最终会影响acquireQueued(final Node node, int arg)方法的返回。
 }
 // 又回到这个方法了：acquireQueued(final Node node, int arg)，这个时候，node的前驱是head了
 ```
@@ -503,7 +503,7 @@ private final boolean parkAndCheckInterrupt() {
 
 1. 锁状态。我们要知道锁是不是被别的线程占有了，这个就是 state 的作用，它为 0 的时候代表没有线程占有锁，可以去争抢这个锁，用 CAS 将 state 设为 1，如果 CAS 成功，说明抢到了锁，这样其他线程就抢不到了，如果锁重入的话，state进行 +1 就可以，解锁就是减 1，直到 state 又变为 0，代表释放锁，所以 lock() 和 unlock() 必须要配对啊。然后唤醒等待队列中的第一个线程，让其来占有锁。
 2. 线程的阻塞和解除阻塞。AQS 中采用了 LockSupport.park(thread) 来挂起线程，用 unpark 来唤醒线程。
-3. 阻塞队列。因为争抢锁的线程可能很多，但是只能有一个线程拿到锁，其他的线程都必须等待，这个时候就需要一个 queue 来管理这些线程，AQS 用的是一个 FIFO 的队列，就是一个链表，每个 node 都持有后继节点的引用。AQS 采用了 CLH 锁的变体来实现，感兴趣的读者可以参考这篇文章[关于CLH的介绍]( http://coderbee.net/index.php/concurrent/20131115/577)，写得简单明了。
+3. 阻塞队列。因为争抢锁的线程可能很多，但是只能有一个线程拿到锁，其他的线程都必须等待，这个时候就需要一个 queue 来管理这些线程，AQS 用的是一个 FIFO（First Input First Output，先进先出） 的队列，就是一个链表，每个 node 都持有后继节点的引用。AQS 采用了 CLH 锁（一种自旋锁）的变体来实现，感兴趣的读者可以参考这篇文章[关于CLH的介绍]( http://coderbee.net/index.php/concurrent/20131115/577)，写得简单明了。
 
 
 ## 示例图解析
@@ -536,11 +536,11 @@ private Node enq(final Node node) {
 
 首先，是线程 2 初始化 head 节点，此时 head==tail, waitStatus==0
 
-![aqs-1](https://www.javadoop.com/blogimages/AbstractQueuedSynchronizer/aqs-1.png)
+![aqs-1](aqs-1.png)
 
 然后线程 2 入队：
 
-![aqs-2](https://www.javadoop.com/blogimages/AbstractQueuedSynchronizer/aqs-2.png)
+![aqs-2](aqs-2.png)
 
 
 同时我们也要看此时节点的 waitStatus，我们知道 head 节点是线程 2 初始化的，此时的 waitStatus 没有设置， java 默认会设置为 0，但是到 shouldParkAfterFailedAcquire 这个方法的时候，线程 2 会把前驱节点，也就是 head 的waitStatus设置为 -1。
@@ -549,7 +549,7 @@ private Node enq(final Node node) {
 
 如果线程 3 此时再进来，直接插到线程 2 的后面就可以了，此时线程 3 的 waitStatus 是 0，到 shouldParkAfterFailedAcquire 方法的时候把前驱节点线程 2 的 waitStatus 设置为 -1。
 
-![aqs-3](https://www.javadoop.com/blogimages/AbstractQueuedSynchronizer/aqs-3.png)
+![aqs-3](aqs-3.png)
 
 这里可以简单说下 waitStatus 中 SIGNAL(-1) 状态的意思，Doug Lea 注释的是：代表后继节点需要被唤醒。也就是说这个 waitStatus 其实代表的不是自己的状态，而是后继节点的状态，我们知道，每个 node 在入队的时候，都会把前驱节点的状态改为 SIGNAL，然后阻塞，等待被前驱唤醒。这里涉及的是两个问题：有线程取消了排队、唤醒操作。其实本质是一样的，读者也可以顺着 “waitStatus代表后继节点的状态” 这种思路去看一遍源码。
 

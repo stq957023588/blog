@@ -2,6 +2,29 @@
 
 > 后台框架
 
+# SpringFeign在版本2.2.6之前RequestInterceptor不排序问题
+
+原因是FeignClientFactoryBean中没有对RequestInterceptor进行排序
+
+```java
+class FeignClientFactoryBean implements FactoryBean<Object>, InitializingBean, ApplicationContextAware {
+    // ...
+    protected void configureUsingConfiguration(FeignContext context, Feign.Builder builder) {
+        // line 124
+        Map<String, RequestInterceptor> requestInterceptors = this.getInheritedAwareInstances(context, RequestInterceptor.class);
+        if (requestInterceptors != null) {
+            List<RequestInterceptor> interceptors = new ArrayList(requestInterceptors.values());
+            AnnotationAwareOrderComparator.sort(interceptors);
+            builder.requestInterceptors(interceptors);
+        }
+        // ...
+    }
+    // ...
+}
+```
+
+
+
 # 源码
 
 ## 获取排除自动注入配置
@@ -334,6 +357,37 @@ com.fool.ThreadPoolAutoConfiguration
   }
   ```
 
+- 设置优先使用自定义HttpMessageConverter
+
+  ```java
+  
+  @Configuration
+  public class WebMvcConfiguration implements WebMvcConfigurer {
+  
+      private final HttpMessageConverter<?> httpMessageConverter;
+  
+      public WebMvcConfiguration( HttpMessageConverter<?> httpMessageConverter) {
+          this.httpMessageConverter = httpMessageConverter;
+      }
+  
+  
+      @Override
+      public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
+          Iterator<HttpMessageConverter<?>> iterator = converters.iterator();
+          while (iterator.hasNext()) {
+              HttpMessageConverter<?> next = iterator.next();
+              if (next == httpMessageConverter) {
+                  iterator.remove();
+                  break;
+              }
+          }
+  
+          converters.add(0, httpMessageConverter);
+      }
+  
+  }
+  ```
+
 - 自定义HttpMessageConvertor能改变响应请求头的原因
 
   通过查看源码发现Http响应最终是使用HttpMessageConvertor的实现类进行转换(AbstractMessageConverterMethodProcessor.writeWithMessageConverters)
@@ -395,11 +449,11 @@ com.fool.ThreadPoolAutoConfiguration
   	}
   }
   ```
-  
+
   并且在获取MediaType数组后,会进行排序,然后使用第一个MediaType
 
   ```java
-HttpServletRequest request = inputMessage.getServletRequest();
+  HttpServletRequest request = inputMessage.getServletRequest();
   List<MediaType> acceptableTypes = getAcceptableMediaTypes(request);
   // 将HttpMessageConvertor中的MediaType
   List<MediaType> producibleTypes = getProducibleMediaTypes(request, valueType, targetType);
@@ -438,7 +492,7 @@ HttpServletRequest request = inputMessage.getServletRequest();
   	}
   }
   ```
-  
+
   回到BeanConfig,在实例化FastJsonHttpMessageConverter时,添加一个application/json的MediaType,并将用于排序的qualityValue设置为最大1.0(qualityValue范围为0.0 ~ 1.0).由于FastJsonHttpMessageConverter.getSupportedMediaTypes返回的是一个UnmodifiableRandomAccessList(不可修改数组),所以需要将UnmodifiableRandomAccessList转成ArrayList后添加MediaType.最后将包含新建的MediaType的list赋值给FastJsonHttpMessageConverter.
 
 - 访问找不到路径的情况下,仍旧范围200的情况,定义全局异常处理,返回统一的结果类
@@ -637,6 +691,12 @@ public @interface TestValid{
 
 
 # SpringSecurity
+
+## SpringSecurity校验流程
+
+SpringSecurity是通过一系列的Filter过滤器进行实现的，所有的Filter都保存在SecurityFilterChain中,SecurityFilterChain由ApplicationFilterChain进行管理
+
+首先ApplicationFilterChain会通过保存的ApplicationFilterConfig获取到Filter的代理类，代理类根据请求以及``WebSecurityConfigurerAdapter.class``中的配置获取对应的SecurityFilterChain所管理的Filters，最终通过新键一个虚拟过滤器链（``VirtualFilterChain.class``）进行过滤流程
 
 ## Maven依赖
 
@@ -1078,7 +1138,7 @@ public ThreadPoolTaskScheduler threadPoolTaskScheduler(){
 
 ## 集成RabbitMQ
 
-依赖
+### 依赖
 
 ```xml
 <dependency>
@@ -1087,14 +1147,36 @@ public ThreadPoolTaskScheduler threadPoolTaskScheduler(){
 </dependency>
 ```
 
-### Work模式
+### 说明
 
-#### 生产者代码
+在``springboot``中，交换机、队列和绑定关系可以通过配置或注解来自动在``rabbitmq``中创建，如果rabbitmq中已经存在交换机等，可以不进行配置，直接发送或接收消息
 
-配置
+注解创建
 
 ```java
+@RabbitListener(bindings = {@QueueBinding(
+    value = @Queue(name = "demo.ann.test", autoDelete = "false", durable = "true"),
+    exchange = @Exchange(name = "topic.demo.ann",type = ExchangeTypes.TOPIC),
+    key = "demo.ann.*"
+)})
+public void annCreateTest(Message message) {
+    System.out.println(message);
+}
+```
 
+此处会在``rabbitmq``中自动创建名为`topic.demo.ann`的交换机，名为`demo.ann.test`的队列，并将队列绑定到交换机上，交换机接收到key为`demo.ann.*`的消息时，会转发到队列中
+
+#### 一对多问题
+
+rabbitmq的队列中的消息只会被成功消费一次，如果多个消费者绑定一个队列，那么会通过负载均衡路由到某一个消费者上
+
+如果要实现发送一条消息，所有订阅者都收到消息，需要将每个订阅者都绑定不同的队列，然后队列再绑定同一个交换机，从而实现广播模式
+
+### Work模式
+
+#### 配置
+
+```java
 @Configuration
 public class RabbitMQConfig {
 
@@ -1107,42 +1189,10 @@ public class RabbitMQConfig {
     public Queue dataQueue() {
         return new Queue(DATA_QUEUE);
     }
-
-
-    @Bean
-    @Primary
-    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
-        RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
-        rabbitTemplate.setMessageConverter(new Jackson2JsonMessageConverter());
-        return rabbitTemplate;
-    }
-
-    /**
-     * 因配置文件因不明原因无法生效,所以在此手动配置
-     *
-     * @param addresses   rabbit mq ip地址
-     * @param port        rabbit mq 端口号
-     * @param username    账号
-     * @param password    密码
-     * @param virtualHost 虚拟host
-     * @return 连接工厂
-     */
-    @Bean(name = "ConnectionFactory")
-    public ConnectionFactory ConnectionFactory(
-            @Value("${spring.rabbitmq.addresses}") String addresses,
-            @Value("${spring.rabbitmq.port}") int port,
-            @Value("${spring.rabbitmq.username}") String username,
-            @Value("${spring.rabbitmq.password}") String password,
-            @Value("${spring.rabbitmq.virtual-host}") String virtualHost) {
-        CachingConnectionFactory connectionFactory = new CachingConnectionFactory(addresses, port);
-        connectionFactory.setUsername(username);
-        connectionFactory.setPassword(password);
-        connectionFactory.setVirtualHost(virtualHost);
-        return connectionFactory;
-    }
+}
 ```
 
-发送消息
+#### 生产者代码
 
 ```java
 
@@ -1163,54 +1213,6 @@ public class RabbitMQService {
 ```
 
 #### 消费者代码
-
-配置
-
-```java
-
-@Configuration
-public class RabbitMQConfig {
-
-    public static final String DATA_QUEUE = "data-queue";
-
-    @Bean(DATA_QUEUE)
-    public Queue dataQueue() {
-        return new Queue(DATA_QUEUE);
-    }
-
-    @Bean(name = "ConnectionFactory")
-    public ConnectionFactory ConnectionFactory(
-            @Value("${spring.rabbitmq.addresses}") String addresses,
-            @Value("${spring.rabbitmq.port}") int port,
-            @Value("${spring.rabbitmq.username}") String username,
-            @Value("${spring.rabbitmq.password}") String password,
-            @Value("${spring.rabbitmq.virtual-host}") String virtualHost) {
-        CachingConnectionFactory connectionFactory = new CachingConnectionFactory(addresses, port);
-        connectionFactory.setUsername(username);
-        connectionFactory.setPassword(password);
-        connectionFactory.setVirtualHost(virtualHost);
-        return connectionFactory;
-    }
-
-    /**
-     * 用于配置消息自动确认
-     *
-     * @param connectionFactory 包含ip.port,username,password信息的连接工厂
-     * @return 仍旧是一个连接工厂,
-     */
-    @Bean
-    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(@Qualifier("ConnectionFactory") ConnectionFactory connectionFactory) {
-        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
-        factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
-        factory.setConnectionFactory(connectionFactory);
-        return factory;
-    }
-
-}
-
-```
-
-接收代码
 
 由spring控制的类中,在方法上添加``@RabbitListener``就可以接受到对应队列的消息
 
@@ -1253,16 +1255,13 @@ public class RabbitMQListener {
 
 ### Fanout模式(发布订阅模式)
 
-#### 生产者代码
+#### 配置
 
-配置
+此处创建了2个队列，一个交换机，并将两个队列都绑定在了交换机上
 
-相比于Work模式,多了交换机角色,以及绑定交换机和队列的步骤
-
-> 此处注意,BindingBuilder.bind(queue).to(exchange),如果是Fanout模式,exchange必须是FanoutExchange,否则会变成配置Topic模式
+此处注意,BindingBuilder.bind(queue).to(exchange),如果是Fanout模式,exchange必须是FanoutExchange,否则会变成配置Topic模式发送消息
 
 ```java
-
 @Configuration
 public class RabbitMQConfig {
 
@@ -1296,45 +1295,11 @@ public class RabbitMQConfig {
     Binding binding2(@Qualifier(FANOUT_QUEUE_TWO) Queue queue, @Qualifier(FANOUT_EXCHANGE) FanoutExchange fanoutExchange) {
         return BindingBuilder.bind(queue).to(fanoutExchange);
     }
-
-
-    @Bean
-    @Primary
-    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
-        RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
-        rabbitTemplate.setMessageConverter(new Jackson2JsonMessageConverter());
-        return rabbitTemplate;
-    }
-
-    /**
-     * 因配置文件因不明原因无法生效,所以在此手动配置
-     *
-     * @param addresses   rabbit mq ip地址
-     * @param port        rabbit mq 端口号
-     * @param username    账号
-     * @param password    密码
-     * @param virtualHost 虚拟host
-     * @return 连接工厂
-     */
-    @Bean(name = "ConnectionFactory")
-    public ConnectionFactory ConnectionFactory(
-            @Value("${spring.rabbitmq.addresses}") String addresses,
-            @Value("${spring.rabbitmq.port}") int port,
-            @Value("${spring.rabbitmq.username}") String username,
-            @Value("${spring.rabbitmq.password}") String password,
-            @Value("${spring.rabbitmq.virtual-host}") String virtualHost) {
-        CachingConnectionFactory connectionFactory = new CachingConnectionFactory(addresses, port);
-        connectionFactory.setUsername(username);
-        connectionFactory.setPassword(password);
-        connectionFactory.setVirtualHost(virtualHost);
-        return connectionFactory;
-    }
-
 }
 
 ```
 
-发送消息
+#### 生产者代码
 
 ```java
 @Service
@@ -1361,65 +1326,6 @@ public class RabbitMQService {
 ```
 
 #### 消费者代码
-
-消息消费的具体代码与Work模式无差别,都是需要消费哪个队列,进行实例化以及``@RabbitListener``中queues参数的配置
-
-配置
-
-在消费者端只要添加需要消费的队列名称即可
-
-```java
-@Configuration
-public class RabbitMQConfig {
-
-    public static final String FANOUT_QUEUE_ONE = "fanout-queue-1";
-
-    public static final String FANOUT_QUEUE_TWO = "fanout-queue-2";
-
-
-    @Bean(FANOUT_QUEUE_ONE)
-    public Queue fanoutQueueOne() {
-        return new Queue(FANOUT_QUEUE_ONE);
-    }
-
-    @Bean(FANOUT_QUEUE_TWO)
-    public Queue fanoutQueueTwo() {
-        return new Queue(FANOUT_QUEUE_TWO);
-    }
-
-
-    @Bean(name = "ConnectionFactory")
-    public ConnectionFactory ConnectionFactory(
-            @Value("${spring.rabbitmq.addresses}") String addresses,
-            @Value("${spring.rabbitmq.port}") int port,
-            @Value("${spring.rabbitmq.username}") String username,
-            @Value("${spring.rabbitmq.password}") String password,
-            @Value("${spring.rabbitmq.virtual-host}") String virtualHost) {
-        CachingConnectionFactory connectionFactory = new CachingConnectionFactory(addresses, port);
-        connectionFactory.setUsername(username);
-        connectionFactory.setPassword(password);
-        connectionFactory.setVirtualHost(virtualHost);
-        return connectionFactory;
-    }
-
-    /**
-     * 用于配置消息自动确认
-     *
-     * @param connectionFactory 包含ip.port,username,password信息的连接工厂
-     * @return 仍旧是一个连接工厂,
-     */
-    @Bean
-    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(@Qualifier("ConnectionFactory") ConnectionFactory connectionFactory) {
-        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
-        factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
-        factory.setConnectionFactory(connectionFactory);
-        return factory;
-    }
-
-}
-```
-
-接收消息代码
 
 ```java
 @Component
@@ -1462,9 +1368,7 @@ public class RabbitMQListener {
 
 ### Topic模式
 
-#### 生产者代码
-
-配置
+#### 配置
 
 相比于Fanout模式(订阅/发布模式),topic多了一个路由(route key),需要在绑定时添加上route key
 
@@ -1472,7 +1376,7 @@ public class RabbitMQListener {
 >
 > eg. route key: **fool.***  , fool.one 、fool.two 会路由到此路由当中, fool , fool.one.two 则不会被路由过来
 >
->  route key:**fool.#** , fool 、fool.one 、fool.one.two 都会路由过来
+> route key:**fool.#** , fool 、fool.one 、fool.one.two 都会路由过来发送消息
 
 ```java
 @Configuration
@@ -1527,43 +1431,10 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(queue).to(topicExchange).with(ROUTE_KEY_FOOL_WELL);
     }
 
-
-    @Bean
-    @Primary
-    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
-        RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
-        rabbitTemplate.setMessageConverter(new Jackson2JsonMessageConverter());
-        return rabbitTemplate;
-    }
-
-    /**
-     * 因配置文件因不明原因无法生效,所以在此手动配置
-     *
-     * @param addresses   rabbit mq ip地址
-     * @param port        rabbit mq 端口号
-     * @param username    账号
-     * @param password    密码
-     * @param virtualHost 虚拟host
-     * @return 连接工厂
-     */
-    @Bean(name = "ConnectionFactory")
-    public ConnectionFactory ConnectionFactory(
-            @Value("${spring.rabbitmq.addresses}") String addresses,
-            @Value("${spring.rabbitmq.port}") int port,
-            @Value("${spring.rabbitmq.username}") String username,
-            @Value("${spring.rabbitmq.password}") String password,
-            @Value("${spring.rabbitmq.virtual-host}") String virtualHost) {
-        CachingConnectionFactory connectionFactory = new CachingConnectionFactory(addresses, port);
-        connectionFactory.setUsername(username);
-        connectionFactory.setPassword(password);
-        connectionFactory.setVirtualHost(virtualHost);
-        return connectionFactory;
-    }
-
 }
 ```
 
-发送消息
+#### 生产者代码
 
 ```java
 @Service
@@ -1586,60 +1457,7 @@ public class RabbitMQService {
 
 #### 消费者代码
 
-消息消费的具体代码与其他模式,都是需要消费哪个队列,进行实例化以及``@RabbitListener``中queues参数的配置
-
 配置,消费者配置与其他模式一致
-
-```java
-@Configuration
-public class RabbitMQConfig {
-
-    public static final String TOPIC_QUEUE_ASTERISK = "topic.asterisk";
-
-    public static final String TOPIC_QUEUE_WELL = "topic.well";
-
-
-    @Bean(TOPIC_QUEUE_ASTERISK)
-    public Queue topicQueueAsterisk() {
-        return new Queue(TOPIC_QUEUE_ASTERISK);
-    }
-
-    @Bean(TOPIC_QUEUE_WELL)
-    public Queue topicQueueWell() {
-        return new Queue(TOPIC_QUEUE_WELL);
-    }
-
-
-    @Bean(name = "ConnectionFactory")
-    public ConnectionFactory ConnectionFactory(
-            @Value("${spring.rabbitmq.addresses}") String addresses,
-            @Value("${spring.rabbitmq.port}") int port,
-            @Value("${spring.rabbitmq.username}") String username,
-            @Value("${spring.rabbitmq.password}") String password,
-            @Value("${spring.rabbitmq.virtual-host}") String virtualHost) {
-        CachingConnectionFactory connectionFactory = new CachingConnectionFactory(addresses, port);
-        connectionFactory.setUsername(username);
-        connectionFactory.setPassword(password);
-        connectionFactory.setVirtualHost(virtualHost);
-        return connectionFactory;
-    }
-
-    /**
-     * 用于配置消息自动确认
-     *
-     * @param connectionFactory 包含ip.port,username,password信息的连接工厂
-     * @return 仍旧是一个连接工厂,
-     */
-    @Bean
-    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(@Qualifier("ConnectionFactory") ConnectionFactory connectionFactory) {
-        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
-        factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
-        factory.setConnectionFactory(connectionFactory);
-        return factory;
-    }
-```
-
-接收消息
 
 ```java
 @Component
@@ -2416,7 +2234,7 @@ public class FoolDatabaseConfig {
         String mapperPath = "classpath*:mapper.*.xml";
         SqlSessionFactoryBean bean = new SqlSessionFactoryBean();
         bean.setDataSource(dataSource);
-        bean.setMapperLocations(new PathMatchingResourcePatternResolver().getResource(mapperPath));
+        bean.setMapperLocations(new PathMatchingResourcePatternResolver().getResources(mapperPath));
         org.apache.ibatis.session.Configuration configuration = new org.apache.ibatis.session.Configuration();
         configuration.setMapUnderscoreToCamelCase(true);
         bean.setConfiguration(configuration);
@@ -2559,6 +2377,97 @@ spring:
       jdbc-url:
       username:
       password:
+```
+
+# 动态数据源
+
+动态数据源类
+
+```java
+public class DynamicDataSource extends AbstractRoutingDataSource {
+    private final DynamicDataSourceContext dynamicDataSourceContext;
+
+    public DynamicDataSource(DynamicDataSourceContext dynamicDataSourceContext) {
+        this.dynamicDataSourceContext = dynamicDataSourceContext;
+    }
+
+    @Override
+    protected Object determineCurrentLookupKey() {
+        return dynamicDataSourceContext.getCurrentLookupKey();
+    }
+}
+```
+
+动态数据源上下文，用于数据源切换
+
+```java
+public class DynamicDataSourceContext {
+
+    /**
+     * 动态数据源名称上下文
+     */
+    private final ThreadLocal<String> datasourceCurrentLookupKeyStore = new ThreadLocal<>();
+
+    /**
+     * 设置/切换数据源,记得一定要removeKey
+     */
+    public void setCurrentLookupKey(String key) {
+        datasourceCurrentLookupKeyStore.set(key);
+    }
+
+    /**
+     * 获取数据源名称
+     */
+    public String getCurrentLookupKey() {
+        return datasourceCurrentLookupKeyStore.get();
+    }
+
+    /**
+     * 删除当前数据源名称
+     */
+    public void removeCurrentLookupKey() {
+        datasourceCurrentLookupKeyStore.remove();
+    }
+```
+
+自定义DataSource用于替代原有DataSource
+
+```java
+@Configuration
+public class DatasourceConfiguration {
+
+    DynamicDataSourceContext dynamicDataSourceContext() {
+        return new DynamicDataSourceContext();
+    }
+
+    DataSource dynamicDataSource() {
+        DynamicDataSource dynamicDataSource = new DynamicDataSource(dynamicDataSourceContext());
+        dynamicDataSource.setTargetDataSources(new HashMap<>());
+        return dynamicDataSource;
+    }
+
+}
+```
+
+样例
+
+```java
+@RestController
+public class DemoController {
+    private final DynamicDataSourceContext dynamicDataSourceContext;
+    
+    public DemoController(DynamicDataSourceContext dynamicDataSourceContext) {
+        this.dynamicDataSourceContext = dynamicDataSourceContext;
+    }
+
+    @GetMapping("/dynamic/test")
+    public void dynamicTest(String dataSourceKey) {
+        dynamicDataSourceContext.setCurrentLookupKey(dataSourceKey);
+	    // 调用业务层...
+        dynamicDataSourceContext.removeCurrentLookupKey();
+    }
+
+}
 ```
 
 # 取消Bean的单例模式

@@ -1,3 +1,27 @@
+# Linux压缩包安装Mysql
+
+```shell
+wget https://downloads.mysql.com/archives/get/p/23/file/mysql-8.1.0-linux-glibc2.28-x86_64.tar.xz
+xz -d mysql-8.1.0-linux-glibc2.28-x86_64.tar.xz
+tar -xvf mysql-8.1.0-linux-glibc2.28-x86_64.tar
+mv mysql-8.1.0-linux-glibc2.28-x86_64 mysql
+mkdir data
+./bin/mysqld --initialize --user=mysql --basedir=/usr/local/mysql --datadir=/usr/local/mysql/data
+./support-files/mysql.server start
+```
+
+如果有报错：
+
+```shell
+./bin/mysqld: error while loading shared libraries: libaio.so.1: cannot open shared object file: No such file or directory
+```
+
+安装下libaio
+
+```shell
+sudo apt-get install libaio1
+```
+
 # Win压缩包安装Mysql
 
 [Win压缩包安装MySql](https://zhuanlan.zhihu.com/p/265148449)
@@ -88,6 +112,19 @@ mysqldump -uroot -p laboratory > laboratory_backup.sql
 # mysqldump -u用户名 -p -h主机 数据库名 表名 > 存放目标文件全路径
 mysqldump -uroot -p laboratory student > laboratory_student_backup.sql
 ```
+
+备份时报错可以用的参数
+
+```shell
+# SSLConnection连接异常
+--ssl-mode=disabled
+# 用户锁表权限问题（LOCK TABLES)
+--skip-lock-tables
+# column statistic
+--column-statistic=0
+```
+
+
 
 ## 恢复
 

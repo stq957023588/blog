@@ -1,3 +1,14 @@
+# Redis.conf
+
+```conf
+# 密码
+requirepass fool 
+＃是否后台运行
+daemonize yes
+```
+
+
+
 # redis存储数据类型
 
 String,Hash,List,Set,Ordered Set

@@ -89,3 +89,14 @@ maven中三种classpath
 </plugin>
 ```
 
+# 自定义插件
+
+## 运行
+
+```shell
+mvn groupId:artifactId:version:goal
+```
+
+
+
+## 接口文档生成插件

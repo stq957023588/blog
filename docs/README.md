@@ -1,9 +1,3 @@
-# 前言
-
-> The amazing and great world is building.
-
-
-
 # 编程语言
 
 * [Java](/programming-language/Java.md)

@@ -6,9 +6,29 @@
 
 todo
 
-## 启动
+## 安装
 
-### Docker启动
+### window下安装
+
+下载压缩包，并解压
+
+进入bin目录，运行``elasticsearch.bat``
+
+注册为服务
+
+```shell
+elasticsearch-service.bat install
+```
+
+卸载服务
+
+```shell
+elasticsearch-service.bat remove
+```
+
+
+
+### Docker下安装
 
 ```shell
 docker run --name es01 --net elastic -p 9201:9200 -p 9301:9300 -e "discovery.type=single-node" -e "network.host=es01" -e "discovery.seed_hosts=['es01']" -it docker.elastic.co/elasticsearch/elasticsearch:7.17.0

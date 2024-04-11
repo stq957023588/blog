@@ -1,3 +1,57 @@
+# Reflections
+
+依赖
+
+```xml
+<!-- 需要引入的jar包 -->
+<dependency>
+	<groupId>org.reflections</groupId>
+	<artifactId>reflections</artifactId>
+	<version>0.9.10</version>
+</dependency>
+
+```
+
+获取所有子类
+
+```java
+@Service
+public class TFactory {
+	@PostConstruct
+	public void init() throws IllegalAccessException, InstantiationException {
+	    //获取该路径下所有类
+		Reflections reflections = new Reflections("com.test");
+    	//获取继承了ISuperClass的所有类
+		Set<Class<? extends ISuperClass>> classSet = reflections.getSubTypesOf(ISuperClass.class);
+		
+		for (Class<? extends ISuperClass> clazz : classSet){
+			// 实例化获取到的类
+			ISuperClass obj = clazz.newInstance();
+			// TODO 自己的处理逻辑
+		}
+	}
+}
+
+```
+
+
+
+# JavaParser
+
+用户解析Java文件
+
+依赖：
+
+```xml
+       <dependency>
+            <groupId>com.github.javaparser</groupId>
+            <artifactId>javaparser-symbol-solver-core</artifactId>
+            <version>3.25.8</version>
+        </dependency>
+```
+
+
+
 # ObjectMapper
 
 ## 字符串转对象遇到Unrecognized field xxx , not marked as ignorable

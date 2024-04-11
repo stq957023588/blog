@@ -305,7 +305,7 @@ private void doAcquireSharedInterruptibly(int arg)
 
 接下来，我们来看唤醒的流程。为了让下面的示意图更丰富些，我们假设用 10 初始化 CountDownLatch。
 
-![1](https://www.javadoop.com/blogimages/AbstractQueuedSynchronizer-3/1.png)
+![1](1.png)
 
 当然，我们的例子中，其实没有 10 个线程，只有 2 个线程 t1 和 t2，只是为了让图好看些罢了。
 
@@ -471,7 +471,7 @@ for 循环第一轮的时候会唤醒 t4，t4 醒后会将自己设置为头节�
 
 字面意思是“可重复使用的栅栏”或“周期性的栅栏”，总之不是用了一次就没用了的，CyclicBarrier 相比 CountDownLatch 来说，要简单很多，其源码没有什么高深的地方，它是 ReentrantLock 和 Condition 的组合使用。看如下示意图，CyclicBarrier 和 CountDownLatch 是不是很像，只是 CyclicBarrier 可以有不止一个栅栏，因为它的栅栏（Barrier）可以重复使用（Cyclic）。
 
-![cyclicbarrier-2](https://www.javadoop.com/blogimages/AbstractQueuedSynchronizer-3/cyclicbarrier-2.png)
+![cyclicbarrier-2](cyclicbarrier-2.png)
 
 首先，CyclicBarrier 的源码实现和 CountDownLatch 大相径庭，CountDownLatch 基于 AQS 的共享模式的使用，而 CyclicBarrier 基于 Condition 来实现。
 

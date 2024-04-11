@@ -2,6 +2,16 @@
 
 一个面向对象的编程语言
 
+# 远程调试
+
+服务器添加JVM参数`-agentlib:jdwp=transport=dt_socket,address=5005,server=y,suspend=n`
+
+```shell
+java -jar -agentlib:jdwp=transport=dt_socket,address=5005,server=y,suspend=n TestApplication-0.0.1.jar
+```
+
+
+
 # CPU占用过高问题排查
 
 1. top 查看cpu占用情况
