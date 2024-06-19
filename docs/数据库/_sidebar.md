@@ -1,9 +1,9 @@
-- [Ê×Ò³?](/)
+- [é¦–é¡µâ–¸](/)
 
-- [MongoDb?](/Êı¾İ¿â/MongoDb.md)
+- [MongoDbâ–¸](/æ•°æ®åº“/MongoDb.md)
 
-- [MyCat?](/Êı¾İ¿â/MyCat.md)
+- [MyCatâ–¸](/æ•°æ®åº“/MyCat.md)
 
-- [Mysql?](/Êı¾İ¿â/Mysql.md)
+- [Mysqlâ–¸](/æ•°æ®åº“/Mysql.md)
 
-- [Redis?](/Êı¾İ¿â/Redis.md)
+- [Redisâ–¸](/æ•°æ®åº“/Redis.md)
