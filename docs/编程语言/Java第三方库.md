@@ -52,9 +52,11 @@ public class TFactory {
 
 
 
-# ObjectMapper
+# Jackson
 
-## 字符串转对象遇到Unrecognized field xxx , not marked as ignorable
+## ObjectMapper
+
+### 字符串转对象遇到Unrecognized field xxx , not marked as ignorable
 
 需要添加一下代码
 
@@ -62,9 +64,15 @@ public class TFactory {
 objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 ```
 
+# guava
 
+## 依赖
 
-# LoadingCache
+```groovy
+    implementation 'com.google.guava:guava:33.0.0-jre'
+```
+
+## LoadingCache
 
 拥有时效的本地缓存
 

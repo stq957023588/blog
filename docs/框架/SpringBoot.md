@@ -1747,7 +1747,33 @@ public class RabbitMQService {
 
 #### 消费者消息确认
 
-消费者端的消息确认在3个模式的代码中以体现,通过Channel的basicAck来进行消息的确认以及拒绝
+消费者端的消息确认在3个模式的代码中以体现,通过Channel的basicAck来进行消息的确认以及拒绝，但需要开启手动确认消息
+
+Springboot中需要配置`acknowledge-mode`为手动模式
+
+```yaml
+spring:
+  rabbitmq:
+    listener:
+      simple:
+        acknowledge-mode: manual
+```
+
+或者自定义`SimpleRabbitListenerContainerFactory`
+
+```java
+@Bean
+SimpleRabbitListenerContainerFactory getSimpleRabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
+    SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+    factory.setConnectionFactory(connectionFactory);
+    //使用jackson进行消息序列与反序列
+    factory.setMessageConverter(new Jackson2JsonMessageConverter());
+    factory.setAcknowledgeMode(AcknowledgeMode.MANUAL); // 开启手动 ack
+    return factory;
+}
+```
+
+
 
 
 

@@ -61,7 +61,7 @@ docker run -e ES_JAVA_OPTS="-Xms1g -Xmx1g" -e ENROLLMENT_TOKEN="<token>" --name 
 重置密码
 
 ```shell
-elasticsearch-reset-password -u elastic
+elasticsearch-reset-password -u elastic --url https://localhost:9200
 ```
 
 获取kibana使用的token
@@ -109,6 +109,50 @@ POST /<索引名称>/_doc
 }
 ```
 
+## 创建ApiKey
+
+name：名称
+
+expiration：过期时间
+
+```
+POST /_security/api_key
+{
+  "name": "my-api-key",
+  "expiration": "1d",   
+  "role_descriptors": { 
+    "role-a": {
+      "cluster": ["all"],
+      "indices": [
+        {
+          "names": ["index-a*"],
+          "privileges": ["read"]
+        }
+      ]
+    },
+    "role-b": {
+      "cluster": ["all"],
+      "indices": [
+        {
+          "names": ["index-b*"],
+          "privileges": ["all"]
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "application": "my-application",
+    "environment": {
+       "level": 1,
+       "trusted": true,
+       "tags": ["dev", "staging"]
+    }
+  }
+}
+```
+
+
+
 ## 对PDF等文件进行索引
 
 添加中文分词器(IK)
@@ -134,6 +178,22 @@ curl -XPUT 'ES_HOST:ES_PORT/_ingest/pipeline/attachment?pretty' -H 'Content-Type
 }'
 ```
 
+创建索引
+
+```shell
+curl -XPUT 'ES_HOST:ES_PORT/{索引名称}' -H 'Content-Type: application/json' -d '{
+  "mappings": {
+    "properties": {
+            "attachment.content": {
+                "type": "text",
+                "analyzer": "ik_max_word",
+                "search_analyzer": "ik_smart"
+            }
+        }
+  }
+}'
+```
+
 添加文档
 
 ```shell
@@ -154,8 +214,7 @@ GET /test_index/_search
   "query": {
     "match": {
       "attachment.content": {
-        "query": "第一次",
-        "analyzer": "ik_smart"
+        "query": "第一次"
       }
     }
   },

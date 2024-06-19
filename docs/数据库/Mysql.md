@@ -121,7 +121,7 @@ mysqldump -uroot -p laboratory student > laboratory_student_backup.sql
 # 用户锁表权限问题（LOCK TABLES)
 --skip-lock-tables
 # column statistic
---column-statistic=0
+--column-statistics=0
 ```
 
 
