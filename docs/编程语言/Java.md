@@ -2,6 +2,43 @@
 
 一个面向对象的编程语言
 
+# JAVA自带工具
+
+## jps
+
+获取JAVA pid的工具
+
+命令行执行
+
+```shell
+jps
+```
+
+-l : 输出主类的全名，如果进程执行的是jar包，输出jar路径
+-m : 输出虚拟机进程启动时传递给主类main()函数的参数
+-v : 输出虚拟机进程启动时JVM参数
+-m : 输出虚拟机进程启动时传递给主类main()函数的参数
+
+## jamp
+
+用于打印指定Java进程的共享对象内存映射或堆内存细节（dump文件）
+
+pid 进程ID 可以通过jps命令获取
+
+```shell
+jmap -heap:format=b,file=java_dump.dump <pid>
+```
+
+## jvisualvm
+
+jdk自带的用于分析dump文件的工具,位于jdk/bin目录下
+
+# JVM
+
+file.encoding 修改字符编码
+
+## JVM参数
+
 # 远程调试
 
 服务器添加JVM参数`-agentlib:jdwp=transport=dt_socket,address=5005,server=y,suspend=n`
