@@ -1,3 +1,3 @@
-- [棣栭〉鈻竇(/)
+- [棣栭〉](/)
 
-- [README鈻竇(/git/README.md)
+- [README](/git/README.md)

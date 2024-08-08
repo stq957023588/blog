@@ -1,15 +1,15 @@
-- [棣栭〉鈻竇(/)
+- [棣栭〉](/)
 
-- [Mirai鈻竇(/框架/Mirai.md)
+- [Mirai](/框架/Mirai.md)
 
-- [Mybatis鈻竇(/框架/Mybatis.md)
+- [Mybatis](/框架/Mybatis.md)
 
-- [SpringBoot鈻竇(/框架/SpringBoot.md)
+- [SpringBoot](/框架/SpringBoot.md)
 
-- [SpringCloud鈻竇(/框架/SpringCloud.md)
+- [SpringCloud](/框架/SpringCloud.md)
 
-- [SpringSecurity鈻竇(/框架/SpringSecurity.md)
+- [SpringSecurity](/框架/SpringSecurity.md)
 
-- [Vue鈻竇(/框架/Vue.md)
+- [Vue](/框架/Vue.md)
 
-- [日志框架鈻竇(/框架/日志框架.md)
+- [日志框架](/框架/日志框架.md)

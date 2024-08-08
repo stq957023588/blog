@@ -1,5 +1,5 @@
-- [棣栭〉鈻竇(/)
+- [棣栭〉](/)
 
-- [Linux鈻竇(/操作系统/Linux.md)
+- [Linux](/操作系统/Linux.md)
 
-- [Windows鈻竇(/操作系统/Windows.md)
+- [Windows](/操作系统/Windows.md)

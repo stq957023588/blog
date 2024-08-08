@@ -1,9 +1,9 @@
-- [棣栭〉鈻竇(/)
+- [棣栭〉](/)
 
-- [MongoDb鈻竇(/数据库/MongoDb.md)
+- [MongoDb](/数据库/MongoDb.md)
 
-- [MyCat鈻竇(/数据库/MyCat.md)
+- [MyCat](/数据库/MyCat.md)
 
-- [Mysql鈻竇(/数据库/Mysql.md)
+- [Mysql](/数据库/Mysql.md)
 
-- [Redis鈻竇(/数据库/Redis.md)
+- [Redis](/数据库/Redis.md)
