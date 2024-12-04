@@ -56,6 +56,14 @@ docker ps
 docker exec -it [容器ID] /bin/sh
 ```
 
+查看容器的端口映射
+
+```shell
+docker port [容器ID]
+```
+
+
+
 * 将容器打包成镜像
 
 ```shell

@@ -6,6 +6,16 @@
 
 >[Ubuntu设置、非C盘安装及重装_ubuntu必须安装在c盘吗_EcrayyarcE的博客-CSDN博客](https://blog.csdn.net/Echo__Yi/article/details/120987822)
 
+# 远程SSH免密访问方法
+
+本机通过ssh-keygen生成密钥
+
+```shell
+ssh-keygen -t rsa
+```
+
+默认会在C:\Users\用户名/.ssh/下生成id_rsa，id_rsa.pub两个文件
+
 
 
 # 无法使用kill杀死的进程
@@ -75,7 +85,72 @@
 
 通过以上信息可以精确到具体哪个方法
 
+
+
+# 设置开机启动
+
+使用systemctl
+
+在/etc/systemd/system文件夹下创建 <服务名>.service文件
+
+```shell
+vi  <服务名>.service
+```
+
+编辑<服务名>.service文件
+
+```shell
+[Unit]
+Description=<服务名>
+After=network.target
+
+[Service]
+# 工作目录
+WorkingDirectory=/usr/local/ynpacs-main
+# 用户名
+User=root
+# 用户组
+Group=root
+# 类型
+Type=fork
+#ExecStart=/usr/bin/java -jar -Dspring.profiles.active=pro /usr/local/ynpacs-main/ynpacs-main.jar
+# 启动命令
+ExecStart=/usr/local/ynpacs-main/startup.sh
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+执行开机启动命令
+
+```shell
+systemctl enable <服务名>
+```
+
+
+
 # 命令
+
+## 服务
+
+查看服务列表
+
+```shell
+systemctl list-unit-files
+```
+
+查看服务日志
+
+```shell
+journalctl -f -u <service>
+```
+
+
+
+## 其他
 
 重启防火墙
 
