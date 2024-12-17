@@ -1,3 +1,81 @@
+# Mysql中如何排查响应慢的SQL
+
+启用慢查询日志
+
+```sql
+# 查看是否打开慢查询日志
+SHOW VARIABLES LIKE 'slow_query_log';
+# 设置开启慢查询日志
+SET GLOBAL slow_query_log = 'ON';
+# 设置慢查询阈值
+SET GLOBAL long_query_time = 1; -- 记录执行时间超过1秒的查询
+```
+
+查看慢查询日志
+
+```sql
+SHOW VARIABLES LIKE 'slow_query_log_file';
+```
+
+导出慢查询日志
+
+```shell
+# 显示执行时间最长的前10条查询
+mysqldumpslow -s t -t 10 /path/to/slow_query.log
+```
+
+# Mysql锁的种类
+
+![aaaaa.awebp](微信图片_20241217112010.png)
+
+来源：
+
+[史上最全MySQL各种锁详解一、前言锁是计算机在执行多线程或线程时用于并发访问同一共享资源时的同步机制，MySQL中的锁 - 掘金](https://juejin.cn/post/6931752749545553933)
+
+# 隔离级别
+
+**读未提交（Read Uncommitted）**：在该隔离级别下，事务可以读取其他未提交事务所做的更改，可能导致脏读、不可重复读和幻读问题。
+
+**读已提交（Read Committed）**：事务只能读取其他已提交事务的更改，避免了脏读问题，但仍可能发生不可重复读和幻读。
+
+**可重复读（Repeatable Read）**：在一个事务内的多次读取操作，结果是一致的，即使其他事务进行了提交的修改。这避免了脏读和不可重复读问题，但可能出现幻读。需要注意的是，InnoDB 存储引擎通过多版本并发控制（MVCC）和 Next-Key Locking 机制解决了幻读问题，因此在 InnoDB 中，可重复读隔离级别也避免了幻读。
+
+**可串行化（Serializable）**：最高的隔离级别，强制事务串行执行，完全避免脏读、不可重复读和幻读问题。然而，这种隔离级别会显著降低并发性能，因此在实际应用中较少使用。
+
+# MVCC
+
+MVCC（Multi-Version Concurrency Control，**多版本并发控制**）是一种用于管理数据库并发访问的机制，旨在提高数据库的并发性能并确保数据的一致性。在 MySQL 的 InnoDB 存储引擎中，MVCC 通过维护数据行的多个版本，使读操作无需加锁即可执行，从而实现高效的并发控制。
+
+**MVCC 的工作原理：**
+
+1. **数据版本管理：**
+   - 每行数据在其隐藏字段中包含两个版本号：`DB_TRX_ID`（最近修改该行的事务 ID）和 `DB_ROLL_PTR`（指向该行修改前版本的指针）。
+   - 当事务对数据行进行修改时，InnoDB 会创建该行的一个新版本，并更新 `DB_TRX_ID` 和 `DB_ROLL_PTR`，形成一个版本链。
+2. **Undo 日志：**
+   - 每次数据修改操作都会生成一条 Undo 日志，记录被修改行的旧版本数据。
+   - 这些 Undo 日志用于构建数据行的多版本链，支持事务的回滚操作。
+3. **Read View（读取视图）：**
+   - 当事务启动时，InnoDB 创建一个 Read View，记录当前活跃事务的快照。
+   - 在读取数据时，事务根据 Read View 判断数据行的可见性，确保读取到符合隔离级别要求的数据版本。
+
+**MVCC 的优势：**
+
+- **提高并发性能：**
+  - 通过维护数据的多个版本，读操作无需加锁即可执行，减少了锁竞争，提高了并发性能。
+- **实现一致性读：**
+  - 事务在读取数据时，可以根据其隔离级别读取特定版本的数据，确保数据的一致性。
+
+**MVCC 的局限性：**
+
+- **存储开销：**
+  - 维护多个数据版本和 Undo 日志会增加存储空间的消耗。
+- **版本管理复杂性：**
+  - 需要定期清理无用的旧版本数据，以防止版本链过长，影响查询性能。
+
+参考：
+
+[看完这篇还不懂MySQL的MVCC机制算我输-阿里云开发者社区](https://developer.aliyun.com/article/1115763)
+
 # Linux压缩包安装Mysql
 
 ```shell
@@ -274,51 +352,13 @@ END;
 
 # 索引
 
+mysql中InnoDB存储引擎的索引结构是B+树结构，他的叶子节点是含有指向前后叶子节点的一个双向链表；叶子节点在逻辑上应当是顺序分布的，但是在磁盘上的物理存储位置不是顺序分布的
+
 ## 索引相关的文章
 
 [索引是如何实现的](https://baijiahao.baidu.com/s?id=1721102142129449236&wfr=spider&for=pc)
 
 [聚集索引和非聚集索引的区别](https://m.php.cn/article/489392.html)
-
-## 索引失效的情况
-
-1. 当使用 like 时 % 在前面(e: name like '%Rose'),其他情况诸如在中间以及末尾索引都会生效(e:name like 'R%ose%')
-
-2. 当使用or时可能会失效
-
-   1. or 两边都是同一个表的条件时,两边的字段都是索引时,索引生效(e: s.name = 'rose' or s.age = 14,age 和 name都是索引);当其中一个不是索引的时候,两个字段的索引都不会生效(e: s.remark = '123' or s.name = 'rose', remark 不是索引, name是索引)
-   2. or 两边不是同一个表的条件,并且时以join进行关联时,不管主表字段是否时索引字段,只要join表的字段是索引,那么join表的字段索引一定会被触发
-
-3. 使用组合索引时,如果查询条件中没有带有索引第一个字段,则索引失效,
-
-   ```sql
-   create index test on student(name,age,sex);
-   # 索引生效
-   select * from student where name = 'rose' and age =11 and sex = 0;
-   # 索引生效
-   select * from student where name = 'rose' and sex = 0;
-   # 索引未生效
-   select * from student where name = 'rose' and age =11 and sex = 0;
-   ```
-
-4. 当索引字段冲突时,后面创建的索引失效
-
-5. 当查询字段是varchar时,条件为数字时(e: name = 123, name是varchar),发生隐式转换,会导致索引失效,而当查询字段是数字,而条件是字符串时,索引仍旧为生效
-
-   ```sql
-   create index student_name on student(name);
-   create index student_age on student(age);
-   # 索引失效
-   select * from student where name = 123;
-   # 索引生效
-   select * from student where age = '123';
-   ```
-
-6. 对字段进行操作,或者使用函数时索引失效(e: age + 1 = 10;left(name, 2) = 'rose')
-
-7. 使用 !=, not 时索引可能失效,原因就是第八条:当全表扫描速度比索引速度快时，mysql会使用全表扫描，此时索引失效
-
-8. 当全表扫描速度比索引速度快时，mysql会使用全表扫描，此时索引失效。
 
 # 创建用户
 
