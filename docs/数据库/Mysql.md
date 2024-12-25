@@ -153,6 +153,8 @@ mysql -u root -p [临时密码]
 mysql -uroot -p123456 -h127.0.0.1
 ```
 
+修改密码
+
 查看是否有安装Mysql
 
 ```shell

@@ -34,6 +34,23 @@
 
 # RabbitMQ
 
+## win安装
+
+下载zip压缩包
+
+下载erlang安装包
+
+进入安装目录/sbin下，管理员执行命令
+
+```shell
+# 安装Web图形界面
+rabbitmq-plugins enable rabbitmq_management
+# 注册为服务
+rabbitmq-service install
+```
+
+
+
 ## docker安装
 
 拉取镜像

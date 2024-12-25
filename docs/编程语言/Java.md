@@ -62,7 +62,7 @@ java -jar -agentlib:jdwp=transport=dt_socket,address=5005,server=y,suspend=n Tes
 用于生成证书
 
 ```shell
-keytool -genkey -alias pacs -keyalg RSA -keypass 123456 -storepass -keystore "D:\Wowjoy\123.jks"
+keytool -genkey -alias pacs -keyalg RSA -keypass 123456 -storepass stor -keystore "D:\Wowjoy\123.jks"
 ```
 
 
