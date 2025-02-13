@@ -10,6 +10,8 @@
 
 - [SpringSecurity](/框架/SpringSecurity.md)
 
+- [SpringStateMachine](/框架/SpringStateMachine.md)
+
 - [Vue](/框架/Vue.md)
 
 - [日志框架](/框架/日志框架.md)

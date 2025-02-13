@@ -4,7 +4,9 @@
 
 ## 倒排索引
 
-todo
+参考：
+
+[Elasticsearch-入门反向索引 - 知乎](https://zhuanlan.zhihu.com/p/341723054)
 
 ## 安装
 

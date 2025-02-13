@@ -307,6 +307,265 @@ HashTable
 * hashtable中的数据初始容量为11,且扩容为old*2 + 1
 * 使用的key自带的散列方法
 
+## JUC
+
+### ConcurrentHashMap
+
+通过循环的方式来实现，本次循环内修改的数据，将影响下一次循环内的执行内容
+
+**属性**
+
+```java
+/**
+ * The largest possible table capacity.  This value must be
+ * exactly 1<<30 to stay within Java array allocation and indexing
+ * bounds for power of two table sizes, and is further required
+ * because the top two bits of 32bit hash fields are used for
+ * control purposes.
+ */
+private static final int MAXIMUM_CAPACITY = 1 << 30;
+
+/**
+ * The default initial table capacity.  Must be a power of 2
+ * (i.e., at least 1) and at most MAXIMUM_CAPACITY.
+ */
+private static final int DEFAULT_CAPACITY = 16;
+
+/**
+ * The largest possible (non-power of two) array size.
+ * Needed by toArray and related methods.
+ */
+static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
+
+/**
+ * The default concurrency level for this table. Unused but
+ * defined for compatibility with previous versions of this class.
+ */
+private static final int DEFAULT_CONCURRENCY_LEVEL = 16;
+
+/**
+ * The load factor for this table. Overrides of this value in
+ * constructors affect only the initial table capacity.  The
+ * actual floating point value isn't normally used -- it is
+ * simpler to use expressions such as {@code n - (n >>> 2)} for
+ * the associated resizing threshold.
+ */
+private static final float LOAD_FACTOR = 0.75f;
+
+/**
+ * The bin count threshold for using a tree rather than list for a
+ * bin.  Bins are converted to trees when adding an element to a
+ * bin with at least this many nodes. The value must be greater
+ * than 2, and should be at least 8 to mesh with assumptions in
+ * tree removal about conversion back to plain bins upon
+ * shrinkage.
+ */
+static final int TREEIFY_THRESHOLD = 8;
+
+/**
+ * The bin count threshold for untreeifying a (split) bin during a
+ * resize operation. Should be less than TREEIFY_THRESHOLD, and at
+ * most 6 to mesh with shrinkage detection under removal.
+ */
+static final int UNTREEIFY_THRESHOLD = 6;
+
+/**
+ * The smallest table capacity for which bins may be treeified.
+ * (Otherwise the table is resized if too many nodes in a bin.)
+ * The value should be at least 4 * TREEIFY_THRESHOLD to avoid
+ * conflicts between resizing and treeification thresholds.
+ * 
+ * 所有Node链表转化为红黑树的最小容量
+ */
+static final int MIN_TREEIFY_CAPACITY = 64;
+
+/**
+ * Minimum number of rebinnings per transfer step. Ranges are
+ * subdivided to allow multiple resizer threads.  This value
+ * serves as a lower bound to avoid resizers encountering
+ * excessive memory contention.  The value should be at least
+ * DEFAULT_CAPACITY.
+ */
+private static final int MIN_TRANSFER_STRIDE = 16;
+
+/**
+ * The number of bits used for generation stamp in sizeCtl.
+ * Must be at least 6 for 32bit arrays.
+ */
+private static final int RESIZE_STAMP_BITS = 16;
+
+/**
+ * The maximum number of threads that can help resize.
+ * Must fit in 32 - RESIZE_STAMP_BITS bits.
+ */
+private static final int MAX_RESIZERS = (1 << (32 - RESIZE_STAMP_BITS)) - 1;
+
+/**
+ * The bit shift for recording size stamp in sizeCtl.
+ */
+private static final int RESIZE_STAMP_SHIFT = 32 - RESIZE_STAMP_BITS;
+
+/*
+ * Encodings for Node hash fields. See above for explanation.
+ */
+static final int MOVED     = -1; // hash for forwarding nodes
+static final int TREEBIN   = -2; // hash for roots of trees
+static final int RESERVED  = -3; // hash for transient reservations
+static final int HASH_BITS = 0x7fffffff; // usable bits of normal node hash
+```
+
+**初始化表格/initTable**
+
+```java
+private final Node<K,V>[] initTable() {
+        Node<K,V>[] tab; int sc;
+        while ((tab = table) == null || tab.length == 0) {
+            // 判断是否初始化成功①
+            if ((sc = sizeCtl) < 0)
+                Thread.yield(); // lost initialization race; just spin
+            else if (U.compareAndSetInt(this, SIZECTL, sc, -1)) { // CAS获取初始化资格
+                try {
+                    if ((tab = table) == null || tab.length == 0) {
+                        int n = (sc > 0) ? sc : DEFAULT_CAPACITY;
+                        @SuppressWarnings("unchecked")
+                        Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n];
+                        table = tab = nt;
+                        sc = n - (n >>> 2);
+                    }
+                } finally {
+                    sizeCtl = sc;
+                }
+                break;
+            }
+        }
+        return tab;
+    }
+```
+
+1. 通过自旋CAS竞争初始化资格
+2. 获取初始化资格后，判断是否已经初始化完毕
+3. 如果未初始化，初始化一个Node数组
+
+**treeifyBin**
+
+将所有节点转换成红黑树
+
+```java
+private final void treeifyBin(Node<K,V>[] tab, int index) {
+    Node<K,V> b; int n;
+    if (tab != null) {
+        if ((n = tab.length) < MIN_TREEIFY_CAPACITY)
+            tryPresize(n << 1);
+        else if ((b = tabAt(tab, index)) != null && b.hash >= 0) {
+            synchronized (b) {
+                if (tabAt(tab, index) == b) {
+                    TreeNode<K,V> hd = null, tl = null;
+                    for (Node<K,V> e = b; e != null; e = e.next) {
+                        TreeNode<K,V> p = new TreeNode<K,V>(e.hash, e.key, e.val, null, null);
+                        if ((p.prev = tl) == null)
+                            hd = p;
+                        else
+                            tl.next = p;
+                        tl = p;
+                    }
+                    setTabAt(tab, index, new TreeBin<K,V>(hd));
+                }
+            }
+        }
+    }
+}
+```
+
+
+
+**put方法**
+
+```java
+public V put(K key, V value) {
+    return putVal(key, value, false);
+}
+
+/** Implementation for put and putIfAbsent */
+final V putVal(K key, V value, boolean onlyIfAbsent) {
+    if (key == null || value == null) throw new NullPointerException();
+    int hash = spread(key.hashCode());
+    int binCount = 0;
+    for (Node<K,V>[] tab = table;;) {
+        Node<K,V> f; int n, i, fh; K fk; V fv;
+        if (tab == null || (n = tab.length) == 0)
+            tab = initTable();
+        else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
+            if (casTabAt(tab, i, null, new Node<K,V>(hash, key, value)))
+                break;                   // no lock when adding to empty bin
+        }
+        else if ((fh = f.hash) == MOVED)
+            tab = helpTransfer(tab, f);
+        else if (onlyIfAbsent // check first node without acquiring lock
+                 && fh == hash
+                 && ((fk = f.key) == key || (fk != null && key.equals(fk)))
+                 && (fv = f.val) != null)
+            return fv;
+        else {
+            V oldVal = null;
+            synchronized (f) {
+                if (tabAt(tab, i) == f) {
+                    if (fh >= 0) {
+                        binCount = 1;
+                        for (Node<K,V> e = f;; ++binCount) {
+                            K ek;
+                            if (e.hash == hash &&
+                                ((ek = e.key) == key ||
+                                 (ek != null && key.equals(ek)))) {
+                                oldVal = e.val;
+                                if (!onlyIfAbsent)
+                                    e.val = value;
+                                break;
+                            }
+                            Node<K,V> pred = e;
+                            if ((e = e.next) == null) {
+                                pred.next = new Node<K,V>(hash, key, value);
+                                break;
+                            }
+                        }
+                    }
+                    else if (f instanceof TreeBin) {
+                        Node<K,V> p;
+                        binCount = 2;
+                        if ((p = ((TreeBin<K,V>)f).putTreeVal(hash, key,
+                                                              value)) != null) {
+                            oldVal = p.val;
+                            if (!onlyIfAbsent)
+                                p.val = value;
+                        }
+                    }
+                    else if (f instanceof ReservationNode)
+                        throw new IllegalStateException("Recursive update");
+                }
+            }
+            if (binCount != 0) {
+                if (binCount >= TREEIFY_THRESHOLD)
+                    treeifyBin(tab, i);
+                if (oldVal != null)
+                    return oldVal;
+                break;
+            }
+        }
+    }
+    addCount(1L, binCount);
+    return null;
+}
+```
+
+1. 判空处理
+2. 判断Node数组长度，如果数组为空或长度为0，进行初始化
+3. 获取key对应数组下标的元素，并判空，如果为空，CAS设置值，如果设置成功则结束
+4. 如果设置失败，进行下一轮循环
+5. 判断是否需要进行扩容，如果需要扩容，则扩容后进行下一轮循环，并更新tab为扩容后的Node数组，然后进入下一轮循环
+6. 对对应Node元素进行加锁，然后判断当前元素所组成的是红黑树还是链表
+   1. 如果是链表，则遍历链表，找到与key值完全相同的节点替换value，或者将新节点放在链表最后
+   2. 如果是红黑树，则进行红黑树的数据插入
+7. 通过binCount记录数据变动次数，如果数据变动次数大于红黑树化的阈值（默认是8），那么需要将链表转化为红黑树（会判断数组长度是否超过MIN_TREEIFY_CAPACITY（64）
+
 # java-agent
 
 ## 给运行中的Java程序添加代理
@@ -507,6 +766,115 @@ ThreadPoolExecutor threadPoolExecutor=new ThreadPoolExecutor(5,5,1,TimeUnit.MINU
 ### HashMap容量为什么为2的指数
 
 HashMap中将hash生成的整型转换成链表数组中的下标的方法使用的位运算return h & (length-1) 表示的是 h 除以 length - 1 取余,而要使位运算成立,length必须为2的指数
+
+### 扩容
+
+1. 计算新的阈值和容量
+2. 新建一个长度为新容量的Node数组
+3. 遍历数组以及链表（或红黑树），重新计算每个数据的HASH值
+
+```java
+final Node<K,V>[] resize() {
+        Node<K,V>[] oldTab = table;
+        int oldCap = (oldTab == null) ? 0 : oldTab.length;
+        int oldThr = threshold;
+        int newCap, newThr = 0;
+        if (oldCap > 0) {
+            if (oldCap >= MAXIMUM_CAPACITY) {
+                threshold = Integer.MAX_VALUE;
+                return oldTab;
+            }
+            else if ((newCap = oldCap << 1) < MAXIMUM_CAPACITY &&
+                     oldCap >= DEFAULT_INITIAL_CAPACITY)
+                newThr = oldThr << 1; // double threshold
+        }
+        else if (oldThr > 0) // initial capacity was placed in threshold
+            newCap = oldThr;
+        else {               // zero initial threshold signifies using defaults
+            newCap = DEFAULT_INITIAL_CAPACITY;
+            newThr = (int)(DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
+        }
+        if (newThr == 0) {
+            float ft = (float)newCap * loadFactor;
+            newThr = (newCap < MAXIMUM_CAPACITY && ft < (float)MAXIMUM_CAPACITY ?
+                      (int)ft : Integer.MAX_VALUE);
+        }
+        threshold = newThr;
+        @SuppressWarnings({"rawtypes","unchecked"})
+        Node<K,V>[] newTab = (Node<K,V>[])new Node[newCap];
+        table = newTab;
+        if (oldTab != null) {
+            for (int j = 0; j < oldCap; ++j) {
+                Node<K,V> e;
+                if ((e = oldTab[j]) != null) {
+                    oldTab[j] = null;
+                    if (e.next == null)
+                        newTab[e.hash & (newCap - 1)] = e;
+                    else if (e instanceof TreeNode)
+                        ((TreeNode<K,V>)e).split(this, newTab, j, oldCap);
+                    else { // preserve order
+                        // 低位链表，表示数据进行HASH后仍存放在原索引位置
+                        Node<K,V> loHead = null, loTail = null;
+                        // 高位链表，表示数据进行HASH后不在原索引的位置了，即当前索引+旧容量①
+                        Node<K,V> hiHead = null, hiTail = null;
+                        Node<K,V> next;
+                        // 将链表按照顺序拆分为索引不变和索引改变两条链表
+                        do {
+                            next = e.next;
+                            // 索引不变
+                            if ((e.hash & oldCap) == 0) {
+                                if (loTail == null)
+                                    loHead = e;
+                                else
+                                    loTail.next = e;
+                                loTail = e;
+                            }
+                            // suo'yin
+                            else {
+                                if (hiTail == null)
+                                    hiHead = e;
+                                else
+                                    hiTail.next = e;
+                                hiTail = e;
+                            }
+                        } while ((e = next) != null);
+                        if (loTail != null) {
+                            loTail.next = null;
+                            newTab[j] = loHead;
+                        }
+                        if (hiTail != null) {
+                            hiTail.next = null;
+                            // 新索引位置一定为空，因为索引位置大小超过了原先容量
+                            newTab[j + oldCap] = hiHead;
+                        }
+                    }
+                }
+            }
+        }
+        return newTab;
+    }
+```
+
+1. 为什么扩容后新索引位置不是原索引位置就是当前索引位置+旧容量位置
+
+   假设 `HashMap` **扩容前**：
+
+   - `oldCap = 8`（即 8 个桶）。
+   - `hash 值 % 8` 决定了元素存在哪个桶。
+
+   扩容后：
+
+   - `newCap = 16`（桶数翻倍）。
+   - 计算索引 `index = hash % 16`，但实际上只需要看 `hash & oldCap` 这 1 位（因为 `oldCap = 8`，对应二进制 `00001000`）。
+
+   | hash 值（假设） | 旧索引 (`hash % 8`) | `(hash & 8) == 0`? | 迁移后索引         |
+   | --------------- | ------------------- | ------------------ | ------------------ |
+   | `00000111 (7)`  | `7`                 | ✅ 是               | **7** (原索引不变) |
+   | `00001111 (15)` | `7`                 | ❌ 否               | **7 + 8 = 15**     |
+   | `00000010 (2)`  | `2`                 | ✅ 是               | **2** (原索引不变) |
+   | `00001010 (10)` | `2`                 | ❌ 否               | **2 + 8 = 10**     |
+
+
 
 ### put时候发生的事情
 

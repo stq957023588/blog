@@ -2,6 +2,8 @@
 - [README](/git/README.md)<br>
 
 ### 中间件
+- [Canal](/中间件/Canal.md)<br>
+
 - [Elastic](/中间件/Elastic.md)<br>
 
 - [MessageQueue](/中间件/MessageQueue.md)<br>
@@ -62,19 +64,17 @@
 - [Redis](/数据库/Redis.md)<br>
 
 ### 数据结构与算法分析
-- [dynamic-programming](/数据结构与算法分析/dynamic-programming.md)<br>
-
 - [README](/数据结构与算法分析/README.md)<br>
 
 - [TimeWheel](/数据结构与算法分析/TimeWheel.md)<br>
-
-- [代码实现](/数据结构与算法分析/代码实现.md)<br>
 
 - [参考以及不错的文章](/数据结构与算法分析/参考以及不错的文章.md)<br>
 
 - [在线书籍](/数据结构与算法分析/在线书籍.md)<br>
 
-- [数据结构与算法分析学习笔记](/数据结构与算法分析/数据结构与算法分析学习笔记.md)<br>
+- [排序算法](/数据结构与算法分析/排序算法.md)<br>
+
+- [数据结构](/数据结构与算法分析/数据结构.md)<br>
 
 ### 框架
 - [Mirai](/框架/Mirai.md)<br>
@@ -86,6 +86,8 @@
 - [SpringCloud](/框架/SpringCloud.md)<br>
 
 - [SpringSecurity](/框架/SpringSecurity.md)<br>
+
+- [SpringStateMachine](/框架/SpringStateMachine.md)<br>
 
 - [Vue](/框架/Vue.md)<br>
 
