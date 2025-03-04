@@ -34,6 +34,19 @@
 
 # RabbitMQ
 
+## 队列参数
+
+- Message TTL : 消息生存期
+- Auto expire : 队列生存期
+- Max length : 队列可以容纳的消息的最大条数
+- Max length bytes : 队列可以容纳的消息的最大字节数
+- Overflow behaviour : 队列中的消息溢出后如何处理
+- Dead letter exchange : 溢出的消息需要发送到绑定该死信交换机的队列
+- Dead letter routing key : 溢出的消息需要发送到绑定该死信交换机,并且路由键匹配的队列
+- Maximum priority : 最大优先级
+- Lazy mode : 懒人模式
+- Master locator : 
+
 ## win安装
 
 下载zip压缩包
