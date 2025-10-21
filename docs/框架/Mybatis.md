@@ -226,3 +226,28 @@ Student(id=4, name=小明, age=15)
 ```
 
 引用其他namespace的缓存可能导致粒度变粗,多个namespace下的DDL操作都会对缓存造成影响
+
+# Mybatis-PLUS
+
+## 自定义批量处理
+
+Mapper接口需要集成BaseMapper\<T>
+
+```java
+    default void updateImageStatusByStudyInstanceUID(Collection<T> instances, int batchSize) {
+        MybatisMapperProxy<?> mybatisMapperProxy = MybatisUtils.getMybatisMapperProxy(this);
+        MybatisBatch.Method<T> method = new MybatisBatch.Method<>(mybatisMapperProxy.getMapperInterface());
+        SqlSessionFactory sqlSessionFactory = MybatisUtils.getSqlSessionFactory(mybatisMapperProxy);
+        // 定义批量操作
+        Function<Study, Wrapper<Study>> wrapperFunction = t -> {
+            LambdaUpdateWrapper<T> wrapper = new LambdaUpdateWrapper<>();
+        	// 定义更新SQL
+            return wrapper;
+        };
+        BatchMethod<Study> update = method.update(wrapperFunction);
+        MybatisBatchUtils.execute(sqlSessionFactory, instances, update, batchSize);
+    }
+```
+
+
+
