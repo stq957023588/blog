@@ -1,6 +1,6 @@
 # windows环境部署与使用
 
-**Elasticsearch（前置）**
+## **Elasticsearch（前置）**
 
 1. 下载，SkyWalking暂时不支持9.x版本，此处使用8.x最新版本8.19
 
@@ -18,7 +18,7 @@
    keytool -importkeystore -srckeystore http.p12 -srcstoretype PKCS12 -deststoretype JKS -destkeystore http.jks
    ```
 
-**SkyWalking**
+## **SkyWalking**
 
 1. 官网下载SkyWalking APM
 
@@ -42,7 +42,7 @@
 
 4. 访问127.0.0.1:8080（默认是这个地址）
 
-**代理Java服务**
+## **代理Java服务**
 
 1. 准备一个Springboot web项目
 
@@ -73,3 +73,54 @@
 
    ![image-20251021150152461](SkyWalking.assets/image-20251021150152461.png)
 
+## **日志**
+
+1. 添加依赖
+
+   maven
+
+   ```xml
+   <!-- 如果想在项目代码中获取链路TraceId，则需要引入此依赖 -->
+   <dependency>
+       <groupId>org.apache.skywalking</groupId>
+       <artifactId>apm-toolkit-trace</artifactId>
+       <version>8.8.0</version>
+   </dependency>
+   <!-- skywalking 日志记录 logback插件 -->
+   <dependency>
+       <groupId>org.apache.skywalking</groupId>
+       <artifactId>apm-toolkit-logback-1.x</artifactId>
+       <version>8.8.0</version>
+   </dependency>
+   ```
+
+   gradle
+
+   ```kotlin
+   implementation("org.apache.skywalking:apm-toolkit-trace:8.8.0")
+   implementation("org.apache.skywalking:apm-toolkit-logback-1.x:8.8.0")
+   ```
+
+2. 添加Logback appender
+
+   ```xml
+   
+   <!--skywalking日志上报-->
+   <appender name="grpc-log" class="org.apache.skywalking.apm.toolkit.log.logback.v1.x.log.GRPCLogClientAppender">
+       <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+           <layout class="org.apache.skywalking.apm.toolkit.log.logback.v1.x.mdc.TraceIdMDCPatternLogbackLayout">
+               <!--tid就代表追踪ID，一次请求内，所有服务都保持一致-->
+               <Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{tid}] [%thread] %-5level %logger{36} -%msg%n</Pattern>
+           </layout>
+       </encoder>
+   </appender>
+   
+   <root level="INFO">
+       <!--skywalking添加输出-->
+       <appender-ref ref="grpc-log"/>
+   </root>
+   ```
+
+3. 随便发送一次请求，打开浏览器控制台查看日志
+
+   ![image-20251021163218973](SkyWalking.assets/image-20251021163218973.png)
